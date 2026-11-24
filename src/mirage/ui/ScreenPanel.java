@@ -71,6 +71,24 @@ public final class ScreenPanel extends JPanel {
         planes.add(b);
         tools.add(a);
         tools.add(b);
+        tools.add(new JLabel("   Palette"));
+        ButtonGroup lines = new ButtonGroup();
+        JToggleButton[] lineButtons = new JToggleButton[4];
+        for (int l = 0; l < 4; l++) {
+            final int ll = l;
+            JToggleButton lb = new JToggleButton(Integer.toString(l), l == ed.line);
+            lb.setFocusable(false);
+            lb.setMargin(new java.awt.Insets(2, 6, 2, 6));
+            lb.addActionListener(e -> {
+                ed.line = ll;
+                ed.changed();
+            });
+            lines.add(lb);
+            tools.add(lb);
+            lineButtons[l] = lb;
+        }
+        /* suit la palette choisie ailleurs (pastilles, pipette) */
+        ed.listen(() -> lineButtons[ed.line].setSelected(true));
         tools.add(check("↔", ed.hflip, v -> ed.hflip = v));
         tools.add(check("↕", ed.vflip, v -> ed.vflip = v));
         tools.add(check("Priorité", ed.priority, v -> ed.priority = v));

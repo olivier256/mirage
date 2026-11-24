@@ -14,7 +14,7 @@ aucune bibliothèque.
 ## La fenêtre (pensée pour 1440 × 900)
 
 - **Palettes** (en haut à gauche) : 4 lignes de 16 couleurs, niveaux 0–7
-  par composante comme la CRAM ; la couleur 0 de chaque ligne est
+  par composante comme la CRAM, réglés par trois curseurs R, G, B ; la couleur 0 de chaque ligne est
   transparente (barrée), la 0 de la ligne 0 est le fond.
 - **Tile** (au milieu à gauche) : le tile sélectionné, 8 × 8 ; crayon,
   ligne, rectangle, remplissage, pipette, miroirs, quart de tour, copier /
@@ -22,7 +22,8 @@ aucune bibliothèque.
 - **Tiles** (en haut à droite) : la planche, 32 par rangée. Clic ou glissé :
   le bloc à poser sur l'écran.
 - **Écran** (en bas à droite) : les deux plans, au zoom 1 à 3.
-  Poser / Gommer sur le plan A ou B, avec miroirs et priorité ;
+  Poser / Gommer sur le plan A ou B, dans la palette 0 à 3 choisie
+  (sélecteur « Palette », suit les pastilles), avec miroirs et priorité ;
   P on / P off posent ou retirent le bit de priorité case par case ;
   Hauteur : clic gauche +1, clic droit −1 sur le losange visé ;
   Pipette : reprend l'entrée sous la souris.

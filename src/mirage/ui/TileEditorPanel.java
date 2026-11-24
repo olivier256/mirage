@@ -86,7 +86,7 @@ public final class TileEditorPanel extends JPanel {
     private void refresh() {
         int t = ed.tile();
         info.setText("<html>Tile " + t + " / " + ed.project.tiles.count()
-            + "<br>ligne de palette " + ed.line
+            + "<br>palette " + ed.line
             + (t == 0 ? "<br><i>tile 0 : toujours vide</i>" : "") + "</html>");
         repaint();
     }

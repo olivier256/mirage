@@ -26,3 +26,21 @@ Mesures :
   composition, projection et sélection 3D, format texte, export,
   annulation, démo).
 - Aucune dépendance hors du JDK ; compile avec `javac --release 17`.
+
+## 0.2 — sélecteur de palette et curseurs de couleur
+
+Ce que fait la version :
+
+- Barre de l'écran : sélecteur « Palette 0 1 2 3 » ; la palette choisie
+  est celle des entrées posées. Il reste synchronisé avec les pastilles
+  du panneau Palettes et avec la pipette de l'écran.
+- Panneau Palettes : les boutons − / + sont remplacés par trois curseurs
+  R, G, B de 0 à 7 (crans, valeur affichée). Un glissé complet compte
+  pour un seul pas d'annulation.
+- Panneau Tile : « palette N » au lieu de « ligne de palette N ».
+
+Mesures :
+
+- `make test` : 37 vérifications, 0 échec.
+- Glissé de R de 1 à 7 en trois mouvements : 1 pas d'annulation, la
+  couleur revient à 1 après Annuler.

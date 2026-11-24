@@ -3,25 +3,26 @@ package mirage.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
 import mirage.model.Palette;
 
 /**
- * Les 4 lignes de palette (16 couleurs). Un clic choisit la ligne et la
- * couleur courantes ; R, G, B (0 à 7) modifient la couleur choisie.
+ * Les 4 lignes de palette (16 couleurs). Un clic choisit la palette et la
+ * couleur courantes ; les curseurs R, G, B (0 à 7) modifient la couleur.
  */
 public final class PalettePanel extends JPanel {
     private static final int CELL = 26;
     private final Editor ed;
     private final JLabel[] values = new JLabel[3];
+    private final JSlider[] sliders = new JSlider[3];
+    private boolean refreshing, sliding;
 
     public PalettePanel(Editor ed) {
         this.ed = ed;
@@ -29,48 +30,64 @@ public final class PalettePanel extends JPanel {
         setBorder(BorderFactory.createTitledBorder("Palettes"));
         Swatches sw = new Swatches();
         add(sw, BorderLayout.CENTER);
-        JPanel rgb = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+        JPanel rgb = new JPanel(new java.awt.GridLayout(1, 3, 10, 0));
+        rgb.setBorder(BorderFactory.createEmptyBorder(0, 4, 2, 4));
         String[] names = {"R", "G", "B"};
         for (int k = 0; k < 3; k++) {
             final int comp = k;
-            rgb.add(new JLabel(names[k]));
-            JButton minus = small("−"), plus = small("+");
+            sliders[k] = new JSlider(0, 7, 0);
+            sliders[k].setMajorTickSpacing(1);
+            sliders[k].setPaintTicks(true);
+            sliders[k].setSnapToTicks(true);
+            sliders[k].setFocusable(false);
+            sliders[k].setPreferredSize(new Dimension(120, sliders[k].getPreferredSize().height));
             values[k] = new JLabel("0");
             values[k].setFont(values[k].getFont().deriveFont(Font.BOLD));
-            minus.addActionListener(e -> bump(comp, -1));
-            plus.addActionListener(e -> bump(comp, +1));
-            rgb.add(minus);
-            rgb.add(values[k]);
-            rgb.add(plus);
+            sliders[k].addChangeListener(e -> slide(comp));
+            JPanel one = new JPanel(new BorderLayout(4, 0));
+            one.add(new JLabel(names[k]), BorderLayout.WEST);
+            one.add(sliders[k], BorderLayout.CENTER);
+            one.add(values[k], BorderLayout.EAST);
+            rgb.add(one);
         }
         add(rgb, BorderLayout.SOUTH);
         ed.listen(this::refresh);
         refresh();
     }
 
-    private static JButton small(String s) {
-        JButton b = new JButton(s);
-        b.setMargin(new java.awt.Insets(0, 6, 0, 6));
-        b.setFocusable(false);
-        return b;
-    }
-
-    private void bump(int comp, int d) {
+    /**
+     * Un glissé complet ne compte que pour un pas d'annulation : l'état est
+     * mémorisé au premier mouvement, puis on attend que le curseur soit lâché.
+     */
+    private void slide(int comp) {
+        if (refreshing)
+            return;
         Palette p = ed.project.palette;
         int[] c = {p.level(ed.line, ed.color, 0), p.level(ed.line, ed.color, 1),
             p.level(ed.line, ed.color, 2)};
-        int v = c[comp] + d;
-        if (v < 0 || v > 7)
-            return;
-        ed.beginEdit();
-        c[comp] = v;
-        ed.project.palette.set(ed.line, ed.color, c[0], c[1], c[2]);
-        ed.changed();
+        int v = sliders[comp].getValue();
+        if (v != c[comp]) {
+            if (!sliding) {
+                ed.beginEdit();
+                sliding = true;
+            }
+            c[comp] = v;
+            p.set(ed.line, ed.color, c[0], c[1], c[2]);
+            ed.changed();
+        }
+        if (!sliders[comp].getValueIsAdjusting())
+            sliding = false;
     }
 
     private void refresh() {
-        for (int k = 0; k < 3; k++)
-            values[k].setText(Integer.toString(ed.project.palette.level(ed.line, ed.color, k)));
+        refreshing = true;
+        for (int k = 0; k < 3; k++) {
+            int v = ed.project.palette.level(ed.line, ed.color, k);
+            if (sliders[k].getValue() != v)
+                sliders[k].setValue(v);
+            values[k].setText(Integer.toString(v));
+        }
+        refreshing = false;
         repaint();
     }
 
