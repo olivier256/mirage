@@ -90,8 +90,10 @@ public final class MainFrame extends JFrame {
         file.add(item("Enregistrer sous…", KeyStroke.getKeyStroke(KeyEvent.VK_S,
             cmd | java.awt.event.InputEvent.SHIFT_DOWN_MASK), () -> save(true)));
         file.addSeparator();
-        file.add(item("Exporter pour la Mega Drive…", KeyStroke.getKeyStroke(KeyEvent.VK_E, cmd),
-            this::export));
+        file.add(item("Exporter pour la Mega Drive (.bin)…", KeyStroke.getKeyStroke(KeyEvent.VK_E, cmd),
+            () -> export(Export.Format.BIN)));
+        file.add(item("Exporter pour la Mega Drive (.s)…", KeyStroke.getKeyStroke(KeyEvent.VK_E,
+            cmd | java.awt.event.InputEvent.SHIFT_DOWN_MASK), () -> export(Export.Format.ASM)));
         file.addSeparator();
         file.add(item("Quitter", KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmd), this::quit));
         bar.add(file);
@@ -103,6 +105,13 @@ public final class MainFrame extends JFrame {
         JMenu view = new JMenu("Affichage");
         view.add(item("Carte", KeyStroke.getKeyStroke(KeyEvent.VK_M, cmd), this::openMap));
         bar.add(view);
+        JMenu help = new JMenu("Aide");
+        help.add(item("À propos de Mirage", null, this::about));
+        bar.add(help);
+        /* sur Mac, le menu « Mirage > À propos » */
+        if (java.awt.Desktop.isDesktopSupported()
+            && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.APP_ABOUT))
+            java.awt.Desktop.getDesktop().setAboutHandler(e -> about());
         return bar;
     }
 
@@ -116,7 +125,7 @@ public final class MainFrame extends JFrame {
 
     private void title() {
         String name = ed.file == null ? "sans titre" : ed.file.getFileName().toString();
-        setTitle("Mirage — " + name + (ed.dirty ? " *" : ""));
+        setTitle("Mirage " + mirage.Version.NUMBER + " — " + name + (ed.dirty ? " *" : ""));
     }
 
     private void openMap() {
@@ -170,14 +179,23 @@ public final class MainFrame extends JFrame {
         }
     }
 
-    private void export() {
+    private void about() {
+        JOptionPane.showMessageDialog(this, "<html><b>" + mirage.Version.text() + "</b><br><br>"
+            + "Éditeur de zones isométriques pour la Mega Drive,<br>"
+            + "dans l'esprit de Mirage Type III (Landstalker).<br><br>"
+            + "Java " + System.getProperty("java.version") + "</html>",
+            "À propos de Mirage", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void export(Export.Format f) {
         JFileChooser c = new JFileChooser();
-        c.setDialogTitle("Dossier d'export (tiles.bin, plane_a.bin...)");
+        c.setDialogTitle(f == Export.Format.BIN ? "Dossier d'export (tiles.bin, plane_a.bin...)"
+            : "Dossier d'export (tiles.s, plane_a.s...)");
         c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (c.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
             return;
         try {
-            Export.write(ed.project, c.getSelectedFile().toPath());
+            Export.write(ed.project, c.getSelectedFile().toPath(), f);
             JOptionPane.showMessageDialog(this, "Exporté dans " + c.getSelectedFile());
         } catch (IOException e) {
             error("Impossible d'exporter :\n" + e.getMessage());

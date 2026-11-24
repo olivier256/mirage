@@ -71,4 +71,26 @@ public final class Plane {
     public boolean sameAs(Plane o) {
         return o.width == width && o.height == height && Arrays.equals(cells, o.cells);
     }
+
+    /* Modifier un seul champ d'une entrée pccvhnnn nnnnnnnn */
+
+    public static int withPriority(int e, boolean on) {
+        return on ? e | PRIORITY : e & ~PRIORITY;
+    }
+
+    public static int withLine(int e, int line) {
+        return e & ~0x6000 | (line & 3) << 13;
+    }
+
+    public static int withVflip(int e, boolean on) {
+        return on ? e | VFLIP : e & ~VFLIP;
+    }
+
+    public static int withHflip(int e, boolean on) {
+        return on ? e | HFLIP : e & ~HFLIP;
+    }
+
+    public static int withTile(int e, int tile) {
+        return e & ~0x07FF | tile & 0x07FF;
+    }
 }

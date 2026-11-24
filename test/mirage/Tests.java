@@ -39,6 +39,11 @@ public final class Tests {
         export();
         history();
         demo();
+        freeTiles();
+        fields();
+        asm();
+        selection();
+        version();
         System.out.println(run + " vérifications, " + failed + " échec(s)");
         System.exit(failed == 0 ? 0 : 1);
     }
@@ -169,5 +174,73 @@ public final class Tests {
                     used++;
         check(used == 0, "démo : entrées valides");
         System.out.println("démo : " + p.tiles.count() + " tiles en " + ms + " ms");
+    }
+
+    static void freeTiles() {
+        TileSet t = new TileSet();
+        check(t.pixel(1500, 3, 3) == 0 && t.isEmpty(1500), "tile jamais dessiné : vide");
+        t.setPixel(1500, 3, 3, 9);
+        check(t.count() == 1501 && t.pixel(1500, 3, 3) == 9, "dessiner crée le tile");
+        check(t.firstEmptyAfter(0) == 1 && t.firstEmptyAfter(1499) == 1501, "premier tile libre");
+    }
+
+    static void fields() {
+        int e = Plane.entry(5, 1, false, false, false);
+        e = Plane.withPriority(e, true);
+        e = Plane.withLine(e, 3);
+        e = Plane.withVflip(e, true);
+        e = Plane.withHflip(e, true);
+        e = Plane.withTile(e, 0x7FF);
+        check(e == 0xFFFF, "pccvhnnn nnnnnnnn : tous les champs");
+        e = Plane.withLine(Plane.withVflip(e, false), 0);
+        check(e == 0x8FFF, "champs retirés un à un");
+        check(Plane.withTile(e, 0x800) == 0x8800, "numéro de tile sur 11 bits");
+    }
+
+    static void asm() throws Exception {
+        Project p = Project.empty();
+        p.tiles.setPixel(1, 0, 0, 0xA);
+        p.tiles.setPixel(1, 7, 0, 3);
+        p.planeB.set(2, 0, Plane.entry(40, 2, false, true, true));
+        check(Export.tileCount(p) == 41, "tiles exportés jusqu'au plus grand référencé");
+        String t = Export.tilesAsm(p);
+        check(t.contains("; tile 1 ($001)\n\tdc.l\t$A0000003\n"), "tile en dc.l, un chiffre par pixel");
+        check(Export.planeAsm("PlaneB", p.planeB).contains("\tdc.w\t$0000,$0000,$D028,"),
+            "plan en dc.w");
+        check(Export.cramAsm(p.palette).startsWith("; Exporté par Mirage"), "en-tête");
+        Path dir = Files.createTempDirectory("mirage-s");
+        Export.write(p, dir, Export.Format.ASM);
+        for (String f : new String[] {"tiles.s", "plane_a.s", "plane_b.s", "cram.s", "heights.s", "map.inc"})
+            check(Files.exists(dir.resolve(f)), "export " + f);
+        check(!Files.exists(dir.resolve("tiles.bin")), "pas de .bin en export .s");
+    }
+
+    static void selection() {
+        mirage.ui.Editor ed = new mirage.ui.Editor(Project.empty());
+        ed.onA = true;
+        ed.project.planeA.set(1, 1, Plane.entry(7, 0, false, false, false));
+        ed.project.planeA.set(2, 1, Plane.entry(8, 1, true, false, false));
+        ed.cells.set(1 * 64 + 1);
+        ed.cells.set(1 * 64 + 2);
+        ed.entry = ed.project.planeA.get(1, 1);
+        ed.editEntry(e -> Plane.withLine(e, 2));
+        check(Plane.line(ed.project.planeA.get(1, 1)) == 2 && Plane.line(ed.project.planeA.get(2, 1)) == 2,
+            "palette changée sur toute la sélection");
+        check(Plane.tile(ed.project.planeA.get(2, 1)) == 8 && Plane.flips(ed.project.planeA.get(2, 1)) == 1,
+            "les autres champs ne bougent pas");
+        check(ed.project.planeB.get(1, 1) == 0, "seul le plan de l'onglet change");
+        ed.undo();
+        check(Plane.line(ed.project.planeA.get(1, 1)) == 0, "annuler");
+    }
+
+    static void version() throws Exception {
+        String last = null;
+        for (String l : Files.readAllLines(Path.of("VERSION.md")))
+            if (l.startsWith("## "))
+                last = l;
+        check(last != null && last.startsWith("## " + Version.NUMBER + " "),
+            "Version.NUMBER = dernière section de VERSION.md (" + last + ")");
+        check(Version.PATCH.equals(String.format("%04d", Integer.parseInt(Version.NUMBER.split("\\.")[1]))),
+            "numéro de patch");
     }
 }

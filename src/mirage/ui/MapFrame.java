@@ -20,6 +20,7 @@ import javax.swing.JScrollPane;
 public final class MapFrame extends JFrame {
     private final Editor ed;
     private final ScreenPanel screen;
+    private BufferedImage both;
     private final Overview overview = new Overview();
     private int zoom = 1;
 
@@ -35,7 +36,10 @@ public final class MapFrame extends JFrame {
         setSize(1360, 840);
         /* le plus grand zoom entier qui tient en hauteur */
         zoom = Math.max(1, Math.min(3, 780 / (ed.project.mapHeight() * 8)));
-        ed.listen(overview::repaint);
+        ed.listen(() -> {
+            both = null;
+            overview.repaint();
+        });
         screen.onScroll(overview::repaint);
         addKeyListener(new java.awt.event.KeyAdapter() {
             @Override
@@ -78,7 +82,9 @@ public final class MapFrame extends JFrame {
             Graphics2D g = (Graphics2D) g0;
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                 RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            BufferedImage im = screen.image();
+            if (both == null)
+                both = screen.render(new mirage.model.Render.Options()); /* les deux plans */
+            BufferedImage im = both;
             g.drawImage(im, 0, 0, im.getWidth() * zoom, im.getHeight() * zoom, null);
             if (ed.showWire)
                 ScreenPanel.drawWire(g, ed.project.heights, zoom);

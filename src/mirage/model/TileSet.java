@@ -21,24 +21,50 @@ public final class TileSet {
         tiles.add(new byte[64]);
     }
 
+    /**
+     * Nombre de tiles mémorisés (jusqu'au dernier qu'on a dessiné). Les 2048
+     * numéros de la Mega Drive restent tous utilisables : un tile au-delà
+     * est simplement vide, et il est créé dès qu'on dessine dedans.
+     */
     public int count() {
         return tiles.size();
     }
 
+    private static final byte[] EMPTY = new byte[64];
+
+    private byte[] get(int tile) {
+        return tile >= 0 && tile < tiles.size() ? tiles.get(tile) : EMPTY;
+    }
+
     public int pixel(int tile, int x, int y) {
-        return tiles.get(tile)[y * 8 + x];
+        return get(tile)[y * 8 + x];
     }
 
     public void setPixel(int tile, int x, int y, int color) {
+        ensure(tile + 1);
         tiles.get(tile)[y * 8 + x] = (byte) (color & 15);
     }
 
     public byte[] pixels(int tile) {
-        return tiles.get(tile).clone();
+        return get(tile).clone();
     }
 
     public void setPixels(int tile, byte[] px) {
+        ensure(tile + 1);
         tiles.set(tile, px.clone());
+    }
+
+    /** Vrai si le tile ne contient que la couleur 0. */
+    public boolean isEmpty(int tile) {
+        return Arrays.equals(get(tile), EMPTY);
+    }
+
+    /** Le premier tile vide après « from » (-1 s'il n'y en a plus). */
+    public int firstEmptyAfter(int from) {
+        for (int t = Math.max(1, from + 1); t < MAX; t++)
+            if (isEmpty(t))
+                return t;
+        return -1;
     }
 
     /** Ajoute un tile vide ; renvoie son numéro, -1 si c'est plein. */
@@ -96,7 +122,7 @@ public final class TileSet {
 
     /** 32 octets, 4 bits par pixel, pixel de gauche dans les bits de poids fort. */
     public byte[] pack(int tile) {
-        byte[] px = tiles.get(tile), out = new byte[32];
+        byte[] px = get(tile), out = new byte[32];
         for (int n = 0; n < 32; n++)
             out[n] = (byte) (px[2 * n] << 4 | px[2 * n + 1]);
         return out;

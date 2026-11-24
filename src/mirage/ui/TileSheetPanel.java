@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -31,18 +32,13 @@ public final class TileSheetPanel extends JPanel {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("Tiles"));
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        bar.add(button("Nouveau", () -> {
-            ed.beginEdit();
-            int t = ed.project.tiles.add();
-            if (t >= 0)
-                select(t);
-            ed.changed();
-        }));
         bar.add(button("Dupliquer", () -> {
+            int t = ed.project.tiles.firstEmptyAfter(ed.tile());
+            if (t < 0)
+                return;
             ed.beginEdit();
-            int t = ed.project.tiles.add(ed.project.tiles.pixels(ed.tile()));
-            if (t >= 0)
-                select(t);
+            ed.project.tiles.setPixels(t, ed.project.tiles.pixels(ed.tile()));
+            select(t);
             ed.changed();
         }));
         bar.add(info);
@@ -53,8 +49,8 @@ public final class TileSheetPanel extends JPanel {
         ed.listen(() -> {
             sheet.revalidate();
             sheet.repaint();
-            info.setText(ed.project.tiles.count() + " tiles ; bloc de " + ed.selW + " x "
-                + ed.selH + " à partir du tile " + ed.selStart);
+            String block = ed.selW * ed.selH > 1 ? " ; bloc de " + ed.selW + " x " + ed.selH : "";
+            info.setText(String.format("tile %d ($%03X)%s", ed.selStart, ed.selStart, block));
         });
     }
 
@@ -101,7 +97,7 @@ public final class TileSheetPanel extends JPanel {
         private void update(int bx, int by) {
             int x0 = Math.min(ax, bx), y0 = Math.min(ay, by);
             int start = y0 * Editor.SHEET_COLS + x0;
-            if (start >= ed.project.tiles.count())
+            if (start >= TileSet.MAX)
                 return;
             ed.selStart = start;
             ed.selW = Math.abs(bx - ax) + 1;
@@ -111,8 +107,7 @@ public final class TileSheetPanel extends JPanel {
 
         @Override
         public Dimension getPreferredSize() {
-            int rows = (ed.project.tiles.count() + Editor.SHEET_COLS - 1) / Editor.SHEET_COLS;
-            return new Dimension(Editor.SHEET_COLS * CELL, Math.max(rows, 1) * CELL);
+            return new Dimension(Editor.SHEET_COLS * CELL, TileSet.MAX / Editor.SHEET_COLS * CELL);
         }
 
         @Override
@@ -122,7 +117,10 @@ public final class TileSheetPanel extends JPanel {
             g.fillRect(0, 0, getWidth(), getHeight());
             TileSet ts = ed.project.tiles;
             BufferedImage im = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
-            for (int t = 0; t < ts.count(); t++) {
+            Rectangle clip = g.getClipBounds();
+            int first = clip == null ? 0 : clip.y / CELL * Editor.SHEET_COLS;
+            int last = clip == null ? TileSet.MAX : Math.min(TileSet.MAX, (clip.y + clip.height) / CELL * Editor.SHEET_COLS + Editor.SHEET_COLS);
+            for (int t = first; t < last; t++) {
                 for (int y = 0; y < 8; y++)
                     for (int x = 0; x < 8; x++) {
                         int c = ts.pixel(t, x, y);
@@ -130,6 +128,10 @@ public final class TileSheetPanel extends JPanel {
                     }
                 int x = (t % Editor.SHEET_COLS) * CELL, y = (t / Editor.SHEET_COLS) * CELL;
                 g.drawImage(im, x, y, 8 * Z, 8 * Z, null);
+                if (ts.isEmpty(t)) { /* position libre : un cadre discret */
+                    g.setColor(new Color(55, 55, 55));
+                    g.drawRect(x, y, 8 * Z - 1, 8 * Z - 1);
+                }
             }
             int sx = (ed.selStart % Editor.SHEET_COLS) * CELL, sy = (ed.selStart / Editor.SHEET_COLS) * CELL;
             g.setColor(Color.YELLOW);

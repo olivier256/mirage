@@ -65,3 +65,34 @@ Mesures :
 - Largeur de la barre : environ 510 pixels au lieu de 890 (elle
   débordait de l'écran à 1440 × 900).
 - `make test` : 37 vérifications, 0 échec.
+
+## 0.4 — tilemap par plan, sélection multiple, export .s
+
+Ce que fait la version :
+
+- Planche des tiles : les 2 048 numéros sont tous utilisables ; un tile
+  jamais dessiné est vide et existe dès qu'on dessine dedans. Le bouton
+  « Nouveau » disparaît ; « Dupliquer » copie vers la première position
+  libre.
+- Tilemap : un onglet « Plan A » et un onglet « Plan B », chacun vu et
+  modifié seul ; la carte (Affichage > Carte) montre toujours les deux.
+- Outils Sélection (rectangle, ⌘-clic, ⌘-glissé), Poser, Gommer. P on,
+  P off, Hauteur, fil de fer et cases plan A / plan B sont retirés de la
+  tilemap (la 3D reviendra plus tard).
+- Champs de l'entrée dans l'ordre des bits `pccvhnnn nnnnnnnn` :
+  Priorité, Palette, V-flip, H-flip, tile en décimal et en hexadécimal
+  (éditables). Ils montrent la case cliquée et s'appliquent à toute la
+  sélection ; c'est le seul endroit où l'on modifie la tilemap.
+- Corrigé : une palette changée sur une case est bien gardée.
+- Export au choix en `.bin` (⌘E) ou en source asm68k `.s` (⇧⌘E).
+- Aide > À propos (et menu Mirage > À propos sur Mac) : « Mirage 0.4 —
+  patch 0004 » ; le numéro est aussi dans le titre de la fenêtre.
+
+Mesures :
+
+- `make test` : 60 vérifications, 0 échec (23 nouvelles : tiles libres,
+  champs de l'entrée, export `.s`, sélection, version = dernière section
+  de VERSION.md).
+- Essai à la souris : rectangle de 18 cases + ⌘-clic = 19 cases, tile
+  $02A tapé une fois appliqué aux 19 ; palette 2 posée, autre case, retour :
+  la palette 2 est restée.

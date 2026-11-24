@@ -7,60 +7,70 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Insets;
 import java.awt.Point;
-import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.BitSet;
+import java.util.function.IntUnaryOperator;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import mirage.model.HeightMap;
 import mirage.model.Plane;
 import mirage.model.Render;
+import mirage.model.TileSet;
 import mirage.model.Wire;
 
 /**
- * La vue de l'écran : 320 x 224 pixels de la carte (au zoom choisi), qu'on
- * fait défiler. On y pose les tiles sur le plan A ou B, on règle leur bit de
- * priorité, on modifie les hauteurs de la 3D (fil de fer).
+ * La tilemap : un onglet par plan (A ou B), qu'on voit et qu'on modifie
+ * seul. On sélectionne des cases (rectangle à la souris, ⌘-clic pour en
+ * ajouter ou en retirer) ; les champs de l'entrée, dans l'ordre des bits
+ * pccvhnnn nnnnnnnn, s'appliquent à toute la sélection.
  */
 public final class ScreenPanel extends JPanel {
+    private static final int MENU_MASK = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+
     private final Editor ed;
     private final MapView view = new MapView();
     private final JScrollPane scroll = new JScrollPane(view);
     private final JLabel status = new JLabel(" ");
+    private final JTabbedPane tabs = new JTabbedPane();
+    private final JPanel tabA = new JPanel(new BorderLayout()), tabB = new JPanel(new BorderLayout());
     private BufferedImage image;
+    private boolean syncing;
 
     public ScreenPanel(Editor ed, Runnable openMap) {
         this.ed = ed;
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Écran"));
+        setBorder(BorderFactory.createTitledBorder("Tilemap"));
 
-        /* Rangée 1 : l'outil (exclusif), puis le zoom et la carte */
+        /* Rangée 1 : l'outil, le zoom, la carte, l'affichage */
         JPanel tools = row();
         ButtonGroup group = new ButtonGroup();
-        Object[][] list = {{"Poser", Editor.MapTool.PLACE}, {"Gommer", Editor.MapTool.ERASE},
-            {"Pipette", Editor.MapTool.PICK}, null,
-            {"P on", Editor.MapTool.PRIO_ON}, {"P off", Editor.MapTool.PRIO_OFF},
-            {"Hauteur", Editor.MapTool.HEIGHT}};
+        Object[][] list = {{"Sélection", Editor.MapTool.SELECT}, {"Poser", Editor.MapTool.PLACE},
+            {"Gommer", Editor.MapTool.ERASE}};
         for (Object[] o : list) {
-            if (o == null) {
-                tools.add(gap());
-                continue;
-            }
             JToggleButton b = compact(new JToggleButton((String) o[0], o[1] == ed.mapTool));
             b.addActionListener(e -> {
                 ed.mapTool = (Editor.MapTool) o[1];
@@ -81,78 +91,77 @@ public final class ScreenPanel extends JPanel {
         JButton map = compact(new JButton("Carte"));
         map.addActionListener(e -> openMap.run());
         tools.add(map);
+        tools.add(gap());
+        tools.add(check("grille", ed.showGrid, v -> ed.showGrid = v));
+        tools.add(check("priorités", ed.showPriority, v -> ed.showPriority = v));
 
-        /* Rangée 2 : l'entrée de plan posée (plan visé, tile, palette, bits) */
+        /* Rangée 2 : l'entrée, dans l'ordre des bits pccvhnnn nnnnnnnn */
         JPanel entry = row();
-        entry.add(new JLabel("Plan"));
-        ButtonGroup planes = new ButtonGroup();
-        JRadioButton pa = new JRadioButton("A", ed.onA), pb = new JRadioButton("B", !ed.onA);
-        pa.setFocusable(false);
-        pb.setFocusable(false);
-        pa.addActionListener(e -> ed.onA = true);
-        pb.addActionListener(e -> ed.onA = false);
-        planes.add(pa);
-        planes.add(pb);
-        entry.add(pa);
-        entry.add(pb);
-        entry.add(gap());
-        entry.add(new JLabel("Tile"));
-        JTextField tileField = new JTextField(8);
-        tileField.setEditable(false);
-        tileField.setFocusable(false);
-        entry.add(tileField);
+        entry.setToolTipText("Entrée de la tilemap : pccvhnnn nnnnnnnn");
+        JCheckBox prio = field(new JCheckBox("Priorité"));
+        prio.addActionListener(e -> edit(en -> Plane.withPriority(en, prio.isSelected())));
+        entry.add(prio);
         entry.add(new JLabel(" Palette"));
         JComboBox<String> palette = new JComboBox<>(new String[] {"0", "1", "2", "3"});
         palette.setFocusable(false);
-        palette.setSelectedIndex(ed.line);
-        palette.addActionListener(e -> {
-            if (syncing || palette.getSelectedIndex() == ed.line)
-                return;
-            ed.line = palette.getSelectedIndex();
-            ed.changed();
-        });
+        palette.addActionListener(e -> edit(en -> Plane.withLine(en, palette.getSelectedIndex())));
         entry.add(palette);
-        JCheckBox prio = check("Priorité", ed.priority, v -> ed.priority = v);
-        JCheckBox hf = check("H-flip", ed.hflip, v -> ed.hflip = v);
-        JCheckBox vf = check("V-flip", ed.vflip, v -> ed.vflip = v);
-        entry.add(prio);
-        entry.add(hf);
+        JCheckBox vf = field(new JCheckBox("V-flip"));
+        vf.addActionListener(e -> edit(en -> Plane.withVflip(en, vf.isSelected())));
+        JCheckBox hf = field(new JCheckBox("H-flip"));
+        hf.addActionListener(e -> edit(en -> Plane.withHflip(en, hf.isSelected())));
         entry.add(vf);
-        /* Les contrôles suivent l'état (pastilles, planche, pipette) */
+        entry.add(hf);
+        entry.add(new JLabel(" Tile"));
+        JTextField dec = new JTextField(5), hex = new JTextField(4);
+        tileField(dec, 10);
+        tileField(hex, 16);
+        entry.add(dec);
+        entry.add(new JLabel("$"));
+        entry.add(hex);
+        JLabel count = new JLabel();
+        entry.add(count);
+
+        /* Les champs suivent l'entrée en cours */
         ed.listen(() -> {
             syncing = true;
-            palette.setSelectedIndex(ed.line);
-            prio.setSelected(ed.priority);
-            hf.setSelected(ed.hflip);
-            vf.setSelected(ed.vflip);
-            pa.setSelected(ed.onA);
-            pb.setSelected(!ed.onA);
-            String t = ed.selStart + String.format(" ($%03X)", ed.selStart);
-            if (ed.selW * ed.selH > 1)
-                t += " " + ed.selW + "x" + ed.selH;
-            tileField.setText(t);
+            int en = ed.entry;
+            prio.setSelected(Plane.priority(en));
+            palette.setSelectedIndex(Plane.line(en));
+            vf.setSelected((Plane.flips(en) & 2) != 0);
+            hf.setSelected((Plane.flips(en) & 1) != 0);
+            dec.setText(Integer.toString(Plane.tile(en)));
+            hex.setText(String.format("%03X", Plane.tile(en)));
+            int n = ed.cells.cardinality();
+            count.setText(n == 0 ? "   (aucune case)" : n == 1 ? "   (1 case)" : "   (" + n + " cases)");
+            if (tabs.getSelectedIndex() != (ed.onA ? 0 : 1))
+                tabs.setSelectedIndex(ed.onA ? 0 : 1);
             syncing = false;
         });
-
-        /* Rangée 3 : ce qu'on voit */
-        JPanel shows = row();
-        shows.add(new JLabel("Voir :"));
-        shows.add(check("plan A", ed.showA, v -> ed.showA = v));
-        shows.add(check("plan B", ed.showB, v -> ed.showB = v));
-        shows.add(check("fil de fer", ed.showWire, v -> ed.showWire = v));
-        shows.add(check("grille", ed.showGrid, v -> ed.showGrid = v));
-        shows.add(check("priorités", ed.showPriority, v -> ed.showPriority = v));
 
         JPanel north = new JPanel();
         north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
         north.add(tools);
         north.add(entry);
-        north.add(shows);
         add(north, BorderLayout.NORTH);
+
+        /* Les onglets : la vue passe dans l'onglet choisi */
+        tabs.addTab("Plan A", tabA);
+        tabs.addTab("Plan B", tabB);
+        tabs.setSelectedIndex(ed.onA ? 0 : 1);
+        (ed.onA ? tabA : tabB).add(scroll);
+        tabs.addChangeListener(e -> {
+            boolean a = tabs.getSelectedIndex() == 0;
+            (a ? tabA : tabB).add(scroll);
+            if (syncing || a == ed.onA)
+                return;
+            ed.onA = a;
+            selectionChanged();
+        });
         scroll.setPreferredSize(new Dimension(640 + 4, 448 + 4));
         scroll.getHorizontalScrollBar().setUnitIncrement(8 * ed.zoom);
         scroll.getVerticalScrollBar().setUnitIncrement(8 * ed.zoom);
-        add(scroll, BorderLayout.CENTER);
+        add(tabs, BorderLayout.CENTER);
         add(status, BorderLayout.SOUTH);
         ed.listen(() -> {
             image = null;
@@ -161,7 +170,44 @@ public final class ScreenPanel extends JPanel {
         });
     }
 
-    private boolean syncing;
+    private void edit(IntUnaryOperator f) {
+        if (!syncing)
+            ed.editEntry(f);
+    }
+
+    /** Numéro de tile éditable en base 10 ou 16 (Entrée ou sortie du champ). */
+    private void tileField(JTextField t, int radix) {
+        t.setHorizontalAlignment(JTextField.RIGHT);
+        Runnable apply = () -> {
+            String s = t.getText().trim().replaceFirst("^(\\$|0[xX])", "");
+            try {
+                int v = Integer.parseInt(s, radix);
+                if (v >= 0 && v < TileSet.MAX && v != Plane.tile(ed.entry)) {
+                    edit(en -> Plane.withTile(en, v));
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                /* valeur refusée : on réaffiche l'ancienne */
+            }
+            ed.changed();
+        };
+        t.addActionListener(e -> apply.run());
+        t.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                apply.run();
+            }
+        });
+    }
+
+    /** La sélection a changé : l'entrée en cours devient celle de la case de référence. */
+    private void selectionChanged() {
+        Plane p = ed.project.plane(ed.onA);
+        int i = view.anchor;
+        if (i >= 0 && ed.cells.get(i))
+            ed.entry = p.get(i % p.width, i / p.width);
+        ed.changed();
+    }
 
     private static JPanel row() {
         JPanel r = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 1));
@@ -169,15 +215,20 @@ public final class ScreenPanel extends JPanel {
         return r;
     }
 
-    private static <T extends javax.swing.AbstractButton> T compact(T b) {
+    private static <T extends AbstractButton> T compact(T b) {
         b.setFocusable(false);
-        b.setMargin(new java.awt.Insets(2, 6, 2, 6));
+        b.setMargin(new Insets(2, 6, 2, 6));
+        return b;
+    }
+
+    private static <T extends AbstractButton> T field(T b) {
+        b.setFocusable(false);
         return b;
     }
 
     /** Un séparateur vertical entre deux groupes. */
-    private static javax.swing.JComponent gap() {
-        javax.swing.JSeparator s = new javax.swing.JSeparator(javax.swing.SwingConstants.VERTICAL);
+    private static JComponent gap() {
+        JSeparator s = new JSeparator(SwingConstants.VERTICAL);
         s.setPreferredSize(new Dimension(9, 20));
         return s;
     }
@@ -190,8 +241,6 @@ public final class ScreenPanel extends JPanel {
         JCheckBox c = new JCheckBox(name, value);
         c.setFocusable(false);
         c.addActionListener(e -> {
-            if (syncing)
-                return;
             s.set(c.isSelected());
             ed.changed();
         });
@@ -218,7 +267,6 @@ public final class ScreenPanel extends JPanel {
     public void centerOn(int x, int y) {
         Rectangle r = scroll.getViewport().getViewRect();
         int vx = Math.max(0, x * ed.zoom - r.width / 2), vy = Math.max(0, y * ed.zoom - r.height / 2);
-        view.scrollRectToVisible(new Rectangle(vx, vy, r.width, r.height));
         scroll.getViewport().setViewPosition(new Point(
             Math.min(vx, Math.max(0, view.getWidth() - r.width)),
             Math.min(vy, Math.max(0, view.getHeight() - r.height))));
@@ -234,17 +282,22 @@ public final class ScreenPanel extends JPanel {
         scroll.getViewport().addChangeListener(e -> r.run());
     }
 
-    BufferedImage image() {
+    private BufferedImage image() {
         if (image == null) {
             Render.Options o = new Render.Options();
-            o.showA = ed.showA;
-            o.showB = ed.showB;
+            o.showA = ed.onA;
+            o.showB = !ed.onA;
             o.showPriority = ed.showPriority;
-            int w = ed.project.mapWidth() * 8, h = ed.project.mapHeight() * 8;
-            image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-            image.setRGB(0, 0, w, h, Render.map(ed.project, o), 0, w);
+            image = render(o);
         }
         return image;
+    }
+
+    BufferedImage render(Render.Options o) {
+        int w = ed.project.mapWidth() * 8, h = ed.project.mapHeight() * 8;
+        BufferedImage im = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        im.setRGB(0, 0, w, h, Render.map(ed.project, o), 0, w);
+        return im;
     }
 
     /** Dessine le fil de fer (coordonnées de la carte, mises à l'échelle z). */
@@ -257,53 +310,62 @@ public final class ScreenPanel extends JPanel {
 
     private final class MapView extends JPanel {
         private int hoverX = -1, hoverY = -1;
-        private boolean dragging;
+        /** Case de référence de la sélection, début du glissé, sélection de départ. */
+        int anchor = -1;
+        private int startX, startY;
+        private BitSet base;
+        private boolean toggle, dragging;
 
         MapView() {
             MouseAdapter m = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
-                    boolean back = SwingUtilities.isRightMouseButton(e) || e.isControlDown();
-                    int mx = e.getX() / ed.zoom, my = e.getY() / ed.zoom;
+                    Plane p = ed.project.plane(ed.onA);
+                    int tx = e.getX() / ed.zoom / 8, ty = e.getY() / ed.zoom / 8;
+                    if (!p.inside(tx, ty))
+                        return;
+                    startX = tx;
+                    startY = ty;
                     switch (ed.mapTool) {
-                    case HEIGHT: {
-                        int[] c = Wire.pick(ed.project.heights, mx, my);
-                        if (c == null)
-                            return;
-                        ed.beginEdit();
-                        HeightMap h = ed.project.heights;
-                        h.setHeight(c[0], c[1], h.height(c[0], c[1]) + (back ? -1 : 1));
-                        ed.changed();
-                        return;
-                    }
-                    case PICK: {
-                        Plane p = ed.project.plane(ed.onA);
-                        int tx = mx / 8, ty = my / 8;
-                        if (!p.inside(tx, ty))
-                            return;
-                        int en = p.get(tx, ty);
-                        ed.selStart = Plane.tile(en);
-                        ed.selW = ed.selH = 1;
-                        ed.line = Plane.line(en);
-                        ed.priority = Plane.priority(en);
-                        ed.hflip = (Plane.flips(en) & 1) != 0;
-                        ed.vflip = (Plane.flips(en) & 2) != 0;
-                        ed.changed();
-                        return;
-                    }
-                    default:
+                    case SELECT:
+                        toggle = (e.getModifiersEx() & MENU_MASK) != 0;
+                        base = toggle ? (BitSet) ed.cells.clone() : new BitSet();
+                        anchor = ty * p.width + tx;
+                        dragging = true;
+                        select(tx, ty);
+                        break;
+                    case PLACE:
                         ed.beginEdit();
                         dragging = true;
-                        apply(mx / 8, my / 8, back);
+                        place(tx, ty);
+                        break;
+                    case ERASE:
+                        ed.beginEdit();
+                        dragging = true;
+                        erase(tx, ty);
+                        break;
                     }
                 }
 
                 @Override
                 public void mouseDragged(MouseEvent e) {
                     hover(e);
-                    if (dragging)
-                        apply(e.getX() / ed.zoom / 8, e.getY() / ed.zoom / 8,
-                            SwingUtilities.isRightMouseButton(e) || e.isControlDown());
+                    if (!dragging)
+                        return;
+                    Plane p = ed.project.plane(ed.onA);
+                    int tx = Math.max(0, Math.min(p.width - 1, e.getX() / ed.zoom / 8));
+                    int ty = Math.max(0, Math.min(p.height - 1, e.getY() / ed.zoom / 8));
+                    switch (ed.mapTool) {
+                    case SELECT:
+                        select(tx, ty);
+                        break;
+                    case PLACE:
+                        place(tx, ty);
+                        break;
+                    case ERASE:
+                        erase(tx, ty);
+                        break;
+                    }
                 }
 
                 @Override
@@ -326,61 +388,61 @@ public final class ScreenPanel extends JPanel {
             addMouseMotionListener(m);
         }
 
+        /** Sélection : rectangle du début du glissé à (tx, ty) ; ⌘-clic inverse une case. */
+        private void select(int tx, int ty) {
+            Plane p = ed.project.plane(ed.onA);
+            BitSet s = (BitSet) base.clone();
+            if (toggle && tx == startX && ty == startY) {
+                s.flip(ty * p.width + tx);
+            } else {
+                for (int y = Math.min(startY, ty); y <= Math.max(startY, ty); y++)
+                    for (int x = Math.min(startX, tx); x <= Math.max(startX, tx); x++)
+                        s.set(y * p.width + x);
+            }
+            ed.cells.clear();
+            ed.cells.or(s);
+            selectionChanged();
+        }
+
+        /** Pose le bloc de la planche en (tx, ty) avec les champs de l'entrée en cours. */
+        private void place(int tx, int ty) {
+            Plane p = ed.project.plane(ed.onA);
+            int f = Plane.flips(ed.entry);
+            ed.cells.clear();
+            for (int by = 0; by < ed.selH; by++)
+                for (int bx = 0; bx < ed.selW; bx++) {
+                    int sx = (f & 1) != 0 ? ed.selW - 1 - bx : bx;
+                    int sy = (f & 2) != 0 ? ed.selH - 1 - by : by;
+                    int t = ed.blockTile(sx, sy);
+                    if (t < 0 || !p.inside(tx + bx, ty + by))
+                        continue;
+                    p.set(tx + bx, ty + by, Plane.withTile(ed.entry, t));
+                    ed.cells.set((ty + by) * p.width + tx + bx);
+                }
+            anchor = ty * p.width + tx;
+            selectionChanged();
+        }
+
+        private void erase(int tx, int ty) {
+            ed.project.plane(ed.onA).set(tx, ty, 0);
+            ed.changed();
+        }
+
         private void hover(MouseEvent e) {
             hoverX = e.getX() / ed.zoom;
             hoverY = e.getY() / ed.zoom;
             int tx = hoverX / 8, ty = hoverY / 8;
-            StringBuilder s = new StringBuilder("pixel " + hoverX + ", " + hoverY + "   case " + tx + ", " + ty);
-            if (ed.project.planeA.inside(tx, ty)) {
-                int ea = ed.project.planeA.get(tx, ty), eb = ed.project.planeB.get(tx, ty);
-                s.append(String.format("   A : tile %d ligne %d%s   B : tile %d ligne %d%s",
-                    Plane.tile(ea), Plane.line(ea), Plane.priority(ea) ? " P" : "",
-                    Plane.tile(eb), Plane.line(eb), Plane.priority(eb) ? " P" : ""));
-            }
-            int[] c = Wire.pick(ed.project.heights, hoverX, hoverY);
-            if (c != null)
-                s.append("   3D : (" + c[0] + ", " + c[1] + ") hauteur "
-                    + ed.project.heights.height(c[0], c[1]));
-            status.setText(s.toString());
-            repaint();
-        }
-
-        /** Applique l'outil à la case (tx, ty) du plan courant. */
-        private void apply(int tx, int ty, boolean back) {
             Plane p = ed.project.plane(ed.onA);
-            switch (ed.mapTool) {
-            case PLACE:
-                if (back) {
-                    if (p.inside(tx, ty))
-                        p.set(tx, ty, 0);
-                    break;
-                }
-                for (int by = 0; by < ed.selH; by++)
-                    for (int bx = 0; bx < ed.selW; bx++) {
-                        int sx = ed.hflip ? ed.selW - 1 - bx : bx;
-                        int sy = ed.vflip ? ed.selH - 1 - by : by;
-                        int t = ed.blockTile(sx, sy);
-                        if (t < 0 || !p.inside(tx + bx, ty + by))
-                            continue;
-                        p.set(tx + bx, ty + by, Plane.entry(t, ed.line, ed.hflip, ed.vflip, ed.priority));
-                    }
-                break;
-            case ERASE:
-                if (p.inside(tx, ty))
-                    p.set(tx, ty, 0);
-                break;
-            case PRIO_ON:
-            case PRIO_OFF:
-                if (p.inside(tx, ty)) {
-                    boolean on = (ed.mapTool == Editor.MapTool.PRIO_ON) != back;
-                    int en = p.get(tx, ty);
-                    p.set(tx, ty, on ? en | Plane.PRIORITY : en & ~Plane.PRIORITY);
-                }
-                break;
-            default:
-                break;
+            String s = "pixel " + hoverX + ", " + hoverY + "   case " + tx + ", " + ty;
+            if (p.inside(tx, ty)) {
+                int en = p.get(tx, ty);
+                s += String.format("   %s : $%04X  tile %d ($%03X)  palette %d%s%s%s",
+                    ed.onA ? "A" : "B", en, Plane.tile(en), Plane.tile(en), Plane.line(en),
+                    Plane.priority(en) ? "  priorité" : "", (Plane.flips(en) & 2) != 0 ? "  V" : "",
+                    (Plane.flips(en) & 1) != 0 ? "  H" : "");
             }
-            ed.changed();
+            status.setText(s);
+            repaint();
         }
 
         @Override
@@ -394,37 +456,32 @@ public final class ScreenPanel extends JPanel {
             Graphics2D g = (Graphics2D) g0;
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                 RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            int z = ed.zoom;
+            int z = ed.zoom, c = 8 * z;
             BufferedImage im = image();
             g.drawImage(im, 0, 0, im.getWidth() * z, im.getHeight() * z, null);
             if (ed.showGrid) {
                 g.setColor(new Color(255, 255, 255, 40));
                 for (int x = 0; x <= ed.project.mapWidth(); x++)
-                    g.drawLine(x * 8 * z, 0, x * 8 * z, getHeight());
+                    g.drawLine(x * c, 0, x * c, getHeight());
                 for (int y = 0; y <= ed.project.mapHeight(); y++)
-                    g.drawLine(0, y * 8 * z, getWidth(), y * 8 * z);
+                    g.drawLine(0, y * c, getWidth(), y * c);
             }
-            if (ed.showWire)
-                drawWire(g, ed.project.heights, z);
+            /* sélection : voile et bord de chaque case */
+            int w = ed.project.mapWidth();
+            for (int i = ed.cells.nextSetBit(0); i >= 0; i = ed.cells.nextSetBit(i + 1)) {
+                int x = i % w * c, y = i / w * c;
+                g.setColor(new Color(80, 160, 255, 70));
+                g.fillRect(x, y, c, c);
+                g.setColor(new Color(120, 200, 255));
+                g.drawRect(x, y, c - 1, c - 1);
+            }
             if (hoverX < 0)
                 return;
-            if (ed.mapTool == Editor.MapTool.HEIGHT) {
-                int[] c = Wire.pick(ed.project.heights, hoverX, hoverY);
-                if (c != null) {
-                    HeightMap h = ed.project.heights;
-                    int x = h.topX(c[0], c[1]), y = h.topY(c[0], c[1], h.height(c[0], c[1]));
-                    Polygon d = new Polygon(new int[] {x * z, (x + 16) * z, x * z, (x - 16) * z},
-                        new int[] {y * z, (y + 8) * z, (y + 16) * z, (y + 8) * z}, 4);
-                    g.setColor(new Color(255, 80, 80, 120));
-                    g.fill(d);
-                }
-                return;
-            }
             int tx = hoverX / 8, ty = hoverY / 8;
-            int w = ed.mapTool == Editor.MapTool.PLACE ? ed.selW : 1;
-            int h = ed.mapTool == Editor.MapTool.PLACE ? ed.selH : 1;
-            g.setColor(ed.onA ? new Color(80, 255, 120) : new Color(80, 180, 255));
-            g.drawRect(tx * 8 * z, ty * 8 * z, w * 8 * z - 1, h * 8 * z - 1);
+            int bw = ed.mapTool == Editor.MapTool.PLACE ? ed.selW : 1;
+            int bh = ed.mapTool == Editor.MapTool.PLACE ? ed.selH : 1;
+            g.setColor(Color.WHITE);
+            g.drawRect(tx * c, ty * c, bw * c - 1, bh * c - 1);
         }
     }
 }
