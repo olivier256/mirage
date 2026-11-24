@@ -22,22 +22,30 @@ aucune bibliothèque.
 - **Tiles** (en haut à droite) : les 2 048 numéros de la Mega Drive, 32
   par rangée. Tous sont utilisables : un tile jamais dessiné est vide (cadre
   discret), il existe dès qu'on dessine dedans. Clic ou glissé : le tile
-  (ou le bloc) à éditer et à poser. Copier / Coller (⌘C / ⌘V) : le
-  tile ou le bloc passe par le presse-papiers en texte asm68k (dc.l),
-  qu'on colle sur le tile choisi.
-- **Tilemap** (en bas à droite) : un onglet par plan, « Plan B » puis
-  « Plan A » (l'ordre du VDP), chacun vu et modifié seul.
+  (ou le bloc) à éditer et à poser. Glisser le tile déjà sélectionné le
+  déplace : les tiles intermédiaires glissent d'une place et la tilemap est
+  recalculée.
+- **Tilemap** (en bas à droite), avec ses **calques** à droite : Plan A
+  au-dessus de Plan B, une case de visibilité chacun, un clic sur le nom
+  pour choisir le calque modifié. Deux calques visibles = composition du
+  VDP, priorités comprises.
   - Outils : **Sélection** (rectangle à la souris ; ⌘-clic ajoute ou
     retire une case, ⌘-glissé ajoute un rectangle), **Poser** (le bloc de
-    la planche, avec les champs de l'entrée en cours), **Gommer**.
+    la bibliothèque, avec les champs de l'entrée en cours), **Gommer**,
+    **Copier / Coller** des cases (tile et attributs ; on colle sur la case
+    sélectionnée la plus en haut à gauche).
   - L'entrée, dans l'ordre des bits `pccvhnnn nnnnnnnn` : Priorité,
     Palette, V-flip, H-flip, numéro de tile en décimal et en hexadécimal
     (Entrée pour valider). Un clic choisit aussi le tile de la case dans
-    la planche et l'éditeur de tile. Les champs montrent la case cliquée et
-    s'appliquent à toutes les cases sélectionnées. C'est le seul endroit
-    où l'on modifie la tilemap : la palette choisie en haut à gauche ne
-    sert qu'à dessiner et voir les tiles.
+    la bibliothèque et l'éditeur de tile. Les champs s'appliquent à toutes
+    les cases sélectionnées.
   - Zoom x1 à x3, grille, priorités (teinte rouge des cases prioritaires).
+- **⌘C / ⌘V** portent sur le dernier panneau cliqué (cadre bleu) ; le menu
+  Édition dit lequel. Le presse-papiers contient du texte asm68k (dc.l
+  pour des tiles, dc.w pour des cases).
+- **Taille de la carte** : 64 x 64 tiles par défaut (un plan de la Mega
+  Drive), sans maximum ; Fichier > Nouveau la demande, Édition > Taille de
+  la carte… la change.
 - **Carte** (bouton ou ⌘M) : les deux plans ensemble, et le fil de fer de
   la 3D ; un clic y déplace la vue ; touches 1, 2, 3 pour le zoom.
 - **Aide > À propos** : la version et le patch.

@@ -5,8 +5,8 @@ public final class Version {
     private Version() {
     }
 
-    public static final String NUMBER = "0.6";
-    public static final String PATCH = "0006";
+    public static final String NUMBER = "0.7";
+    public static final String PATCH = "0007";
 
     public static String text() {
         return "Mirage " + NUMBER + " — patch " + PATCH;

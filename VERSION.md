@@ -143,3 +143,39 @@ Mesures :
 
 - `make test` : 70 vérifications, 0 échec (3 nouvelles : enroulement
   horizontal, vertical, 8 décalages = identité).
+
+## 0.7 — calques, copier-coller de cases, taille libre, tiles déplaçables
+
+Ce que fait la version :
+
+- Tilemap : les onglets sont remplacés par un panneau de calques à droite,
+  comme dans Photoshop : « Plan A » au-dessus de « Plan B », une case de
+  visibilité pour chacun, un clic sur le nom choisit le calque modifié.
+  Les deux calques visibles suivent la composition du VDP (une case du
+  plan B prioritaire passe devant une case du plan A non prioritaire).
+- Copier-coller de cases dans la tilemap (boutons, ⌘C / ⌘V) : les
+  entrées complètes (tile et attributs) du calque modifié. On colle sur
+  la case sélectionnée la plus en haut à gauche ; les cases collées
+  deviennent la sélection. Texte du presse-papiers : « ; Mirage : cases
+  L x H », un masque en commentaire si la sélection n'est pas un
+  rectangle (les cases hors masque ne sont pas touchées), puis des dc.w.
+- Panneau actif : ⌘C / ⌘V portent sur le dernier panneau cliqué
+  (bibliothèque ou tilemap), entouré de bleu ; le menu Édition dit ce
+  qui sera copié (« Copier les cases de la tilemap » ou « Copier les
+  tiles de la bibliothèque »).
+- Taille de carte libre : Nouveau demande la taille (64 x 64 par
+  défaut, pas de maximum) ; Édition > Taille de la carte… agrandit ou
+  réduit (le contenu reste en haut à gauche ; annulable).
+- Bibliothèque : glisser le tile sélectionné (règle du Finder) le
+  déplace ; les tiles entre l'ancienne et la nouvelle place glissent
+  d'une case et les entrées des deux plans sont recalculées. Le tile 0
+  ne bouge pas. Un cadre rouge montre où le tile va se poser.
+
+Mesures :
+
+- `make test` : 86 vérifications, 0 échec (16 nouvelles : copie et
+  collage de cases avec masque, bords de carte, déplacement de tile et
+  recalcul des plans, tailles de carte).
+- Essai à la souris : tile 1 glissé en position 10 → la carte affichée
+  est identique au pixel près (0 pixel différent sur 740 x 470) ;
+  rectangle de 54 cases copié sur l'estrade et collé sur le sol.

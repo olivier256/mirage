@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Toolkit;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -46,8 +47,11 @@ public final class TileSheetPanel extends JPanel {
         ed.listen(() -> {
             sheet.revalidate();
             sheet.repaint();
+            Color c = ed.focus == Editor.Focus.TILES ? new Color(40, 120, 255) : Color.GRAY;
+            setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(c,
+                ed.focus == Editor.Focus.TILES ? 2 : 1), "Tiles"));
             String block = ed.selW * ed.selH > 1 ? " ; bloc de " + ed.selW + " x " + ed.selH : "";
-            info.setText(String.format("tile %d ($%03X)%s   (⌘C / ⌘V : copier / coller, en texte .s)",
+            info.setText(String.format("tile %d ($%03X)%s   — glisser le tile sélectionné pour le déplacer",
                 ed.selStart, ed.selStart, block));
             sheet.scrollRectToVisible(new Rectangle(ed.selStart % Editor.SHEET_COLS * CELL,
                 ed.selStart / Editor.SHEET_COLS * CELL, ed.selW * CELL, ed.selH * CELL));
@@ -68,6 +72,8 @@ public final class TileSheetPanel extends JPanel {
 
     private final class Sheet extends JPanel {
         private int ax = -1, ay;
+        /** Glisser-déposer d'un tile : -1 si on ne déplace rien, sinon la position visée. */
+        private int dropAt = -1;
 
         Sheet() {
             setFocusable(true);
@@ -75,6 +81,13 @@ public final class TileSheetPanel extends JPanel {
                 @Override
                 public void mousePressed(MouseEvent e) {
                     requestFocusInWindow();
+                    ed.setFocus(Editor.Focus.TILES);
+                    int t = at(e);
+                    /* règle du Finder : on déplace en partant du tile déjà sélectionné */
+                    if (ed.selW * ed.selH == 1 && t == ed.selStart && t > 0) {
+                        dropAt = t;
+                        return;
+                    }
                     ax = Math.min(Editor.SHEET_COLS - 1, e.getX() / CELL);
                     ay = e.getY() / CELL;
                     update(ax, ay);
@@ -82,6 +95,12 @@ public final class TileSheetPanel extends JPanel {
 
                 @Override
                 public void mouseDragged(MouseEvent e) {
+                    if (dropAt >= 0) {
+                        dropAt = Math.max(1, Math.min(TileSet.MAX - 1, at(e)));
+                        scrollRectToVisible(new Rectangle(e.getX(), e.getY(), 1, 1));
+                        repaint();
+                        return;
+                    }
                     if (ax >= 0)
                         update(Math.max(0, Math.min(Editor.SHEET_COLS - 1, e.getX() / CELL)),
                             Math.max(0, e.getY() / CELL));
@@ -90,10 +109,22 @@ public final class TileSheetPanel extends JPanel {
                 @Override
                 public void mouseReleased(MouseEvent e) {
                     ax = -1;
+                    if (dropAt >= 0) {
+                        int d = dropAt;
+                        dropAt = -1;
+                        if (d != ed.selStart)
+                            ed.moveTile(ed.selStart, d);
+                        repaint();
+                    }
                 }
             };
             addMouseListener(m);
             addMouseMotionListener(m);
+        }
+
+        private int at(MouseEvent e) {
+            int x = Math.max(0, Math.min(Editor.SHEET_COLS - 1, e.getX() / CELL));
+            return Math.max(0, e.getY() / CELL) * Editor.SHEET_COLS + x;
         }
 
         private void update(int bx, int by) {
@@ -138,6 +169,13 @@ public final class TileSheetPanel extends JPanel {
             int sx = (ed.selStart % Editor.SHEET_COLS) * CELL, sy = (ed.selStart / Editor.SHEET_COLS) * CELL;
             g.setColor(Color.YELLOW);
             g.drawRect(sx - 1, sy - 1, ed.selW * CELL, ed.selH * CELL);
+            if (dropAt >= 0 && dropAt != ed.selStart) { /* où le tile va se poser */
+                int dx = dropAt % Editor.SHEET_COLS * CELL, dy = dropAt / Editor.SHEET_COLS * CELL;
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(255, 70, 70));
+                g2.setStroke(new java.awt.BasicStroke(3f));
+                g2.drawRect(dx, dy, CELL - 1, CELL - 1);
+            }
         }
     }
 }

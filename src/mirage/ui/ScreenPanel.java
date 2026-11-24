@@ -31,7 +31,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
-import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
@@ -43,8 +42,9 @@ import mirage.model.TileSet;
 import mirage.model.Wire;
 
 /**
- * La tilemap : un onglet par plan (A ou B), qu'on voit et qu'on modifie
- * seul. On sélectionne des cases (rectangle à la souris, ⌘-clic pour en
+ * La tilemap, avec ses calques à droite comme dans Photoshop : plan A
+ * au-dessus, plan B dessous, un œil pour chacun ; on modifie le calque
+ * choisi. Quand les deux sont visibles, l'image suit le VDP (priorités). On sélectionne des cases (rectangle à la souris, ⌘-clic pour en
  * ajouter ou en retirer) ; les champs de l'entrée, dans l'ordre des bits
  * pccvhnnn nnnnnnnn, s'appliquent à toute la sélection.
  */
@@ -55,8 +55,6 @@ public final class ScreenPanel extends JPanel {
     private final MapView view = new MapView();
     private final JScrollPane scroll = new JScrollPane(view);
     private final JLabel status = new JLabel(" ");
-    private final JTabbedPane tabs = new JTabbedPane();
-    private final JPanel tabA = new JPanel(new BorderLayout()), tabB = new JPanel(new BorderLayout());
     private BufferedImage image;
     private boolean syncing;
 
@@ -79,6 +77,16 @@ public final class ScreenPanel extends JPanel {
             group.add(b);
             tools.add(b);
         }
+        tools.add(gap());
+        JButton copy = compact(new JButton("Copier"));
+        copy.addActionListener(e -> ed.copyCells());
+        JButton paste = compact(new JButton("Coller"));
+        paste.addActionListener(e -> {
+            if (!ed.pasteCells())
+                Toolkit.getDefaultToolkit().beep();
+        });
+        tools.add(copy);
+        tools.add(paste);
         tools.add(gap());
         ButtonGroup zooms = new ButtonGroup();
         for (int z = 1; z <= 3; z++) {
@@ -134,8 +142,6 @@ public final class ScreenPanel extends JPanel {
             hex.setText(String.format("%03X", Plane.tile(en)));
             int n = ed.cells.cardinality();
             count.setText(n == 0 ? "   (aucune case)" : n == 1 ? "   (1 case)" : "   (" + n + " cases)");
-            if (tabs.getSelectedIndex() != (ed.onA ? 1 : 0))
-                tabs.setSelectedIndex(ed.onA ? 1 : 0);
             syncing = false;
         });
 
@@ -145,29 +151,71 @@ public final class ScreenPanel extends JPanel {
         north.add(entry);
         add(north, BorderLayout.NORTH);
 
-        /* Les onglets, dans l'ordre du VDP (B sous A) ; la vue passe dans l'onglet choisi */
-        tabs.addTab("Plan B", tabB);
-        tabs.addTab("Plan A", tabA);
-        tabs.setSelectedIndex(ed.onA ? 1 : 0);
-        (ed.onA ? tabA : tabB).add(scroll);
-        tabs.addChangeListener(e -> {
-            boolean a = tabs.getSelectedIndex() == 1;
-            (a ? tabA : tabB).add(scroll);
-            if (syncing || a == ed.onA)
-                return;
-            ed.onA = a;
-            selectionChanged();
-        });
+        /* Les calques, à droite : A au-dessus de B */
+        add(new Layers(), BorderLayout.EAST);
         scroll.setPreferredSize(new Dimension(640 + 4, 448 + 4));
         scroll.getHorizontalScrollBar().setUnitIncrement(8 * ed.zoom);
         scroll.getVerticalScrollBar().setUnitIncrement(8 * ed.zoom);
-        add(tabs, BorderLayout.CENTER);
+        add(scroll, BorderLayout.CENTER);
         add(status, BorderLayout.SOUTH);
         ed.listen(() -> {
             image = null;
             view.revalidate();
             view.repaint();
+            Color c = ed.focus == Editor.Focus.MAP ? new Color(40, 120, 255) : Color.GRAY;
+            setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(c,
+                ed.focus == Editor.Focus.MAP ? 2 : 1), "Tilemap"));
         });
+    }
+
+    /** Le panneau des calques : un œil (visibilité) et le nom ; clic = calque modifié. */
+    private final class Layers extends JPanel {
+        Layers() {
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            add(new JLabel("Calques"));
+            add(row("Plan A", true));
+            add(row("Plan B", false));
+        }
+
+        private JPanel row(String name, boolean a) {
+            JPanel r = new JPanel(new BorderLayout(4, 0));
+            r.setMaximumSize(new Dimension(140, 28));
+            r.setPreferredSize(new Dimension(120, 28));
+            JCheckBox eye = new JCheckBox("", a ? ed.showA : ed.showB);
+            eye.setFocusable(false);
+            eye.setToolTipText("Visible");
+            eye.addActionListener(e -> {
+                if (a)
+                    ed.showA = eye.isSelected();
+                else
+                    ed.showB = eye.isSelected();
+                ed.changed();
+            });
+            JLabel label = new JLabel(name);
+            r.add(eye, BorderLayout.WEST);
+            r.add(label, BorderLayout.CENTER);
+            r.setOpaque(true);
+            MouseAdapter pick = new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if (ed.onA != a) {
+                        ed.onA = a;
+                        selectionChanged();
+                    }
+                    ed.setFocus(Editor.Focus.MAP);
+                }
+            };
+            r.addMouseListener(pick);
+            label.addMouseListener(pick);
+            ed.listen(() -> {
+                boolean active = ed.onA == a;
+                r.setBackground(active ? new Color(60, 120, 220) : getBackground());
+                label.setForeground(active ? Color.WHITE : getForeground());
+                eye.setSelected(a ? ed.showA : ed.showB);
+            });
+            return r;
+        }
     }
 
     private void edit(IntUnaryOperator f) {
@@ -303,8 +351,8 @@ public final class ScreenPanel extends JPanel {
     private BufferedImage image() {
         if (image == null) {
             Render.Options o = new Render.Options();
-            o.showA = ed.onA;
-            o.showB = !ed.onA;
+            o.showA = ed.showA;
+            o.showB = ed.showB;
             o.showPriority = ed.showPriority;
             image = render(o);
         }
@@ -340,6 +388,7 @@ public final class ScreenPanel extends JPanel {
                 @Override
                 public void mousePressed(MouseEvent e) {
                     requestFocusInWindow();
+                    ed.setFocus(Editor.Focus.MAP);
                     Plane p = ed.project.plane(ed.onA);
                     int tx = e.getX() / ed.zoom / 8, ty = e.getY() / ed.zoom / 8;
                     if (!p.inside(tx, ty))

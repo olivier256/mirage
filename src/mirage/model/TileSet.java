@@ -54,6 +54,15 @@ public final class TileSet {
         tiles.set(tile, px.clone());
     }
 
+    /** Déplace le tile s en d ; ceux d'entre les deux glissent d'une place. */
+    public void move(int s, int d) {
+        ensure(Math.max(s, d) + 1);
+        byte[] moved = tiles.remove(s);
+        tiles.add(d, moved);
+        while (tiles.size() > 1 && isEmpty(tiles.size() - 1))
+            tiles.remove(tiles.size() - 1);
+    }
+
     /** Vrai si le tile ne contient que la couleur 0. */
     public boolean isEmpty(int tile) {
         return Arrays.equals(get(tile), EMPTY);

@@ -45,6 +45,9 @@ public final class Tests {
         selection();
         clip();
         shift();
+        mapClip();
+        moveTile();
+        mapSize();
         version();
         System.out.println(run + " vérifications, " + failed + " échec(s)");
         System.exit(failed == 0 ? 0 : 1);
@@ -282,5 +285,57 @@ public final class Tests {
         for (int i = 0; i < 8; i++)
             back = TileSet.shift(back, -1, 0);
         check(java.util.Arrays.equals(back, px), "8 décalages = identité");
+    }
+
+    static void mapClip() {
+        Plane a = new Plane(8, 8);
+        a.set(1, 1, 0x8005);
+        a.set(2, 1, 0x2006);
+        a.set(2, 2, 0x1807);
+        java.util.BitSet sel = new java.util.BitSet();
+        sel.set(1 * 8 + 1);
+        sel.set(1 * 8 + 2);
+        sel.set(2 * 8 + 2); /* en L : pas un rectangle */
+        String text = mirage.model.MapClip.copy(a, sel);
+        check(text.equals("; Mirage : cases 2 x 2\n; masque ##\n; masque .#\n\tdc.w\t$8005,$2006\n\tdc.w\t$0000,$1807\n"),
+            "copie des cases en dc.w avec masque");
+        Plane b = new Plane(8, 8);
+        b.set(5, 6, 0x0042);
+        java.util.BitSet done = mirage.model.MapClip.paste(b, text, 5, 5);
+        check(b.get(5, 5) == 0x8005 && b.get(6, 5) == 0x2006 && b.get(6, 6) == 0x1807,
+            "entrées collées avec tous leurs attributs");
+        check(b.get(5, 6) == 0x0042, "case hors masque laissée telle quelle");
+        check(done.cardinality() == 3, "les cases collées deviennent la sélection");
+        mirage.model.MapClip.paste(b, text, 7, 7);
+        check(b.get(7, 7) == 0x8005, "ce qui sort de la carte est ignoré");
+        check(mirage.model.MapClip.paste(b, "; tile 1\n\tdc.l\t$00000000", 0, 0) == null,
+            "des tiles ne se collent pas comme des cases");
+    }
+
+    static void moveTile() {
+        Project p = Project.empty();
+        for (int t = 1; t <= 5; t++)
+            p.tiles.setPixel(t, 0, 0, t);
+        p.planeA.set(0, 0, Plane.entry(2, 1, true, false, true));
+        p.planeB.set(1, 0, Plane.entry(4, 0, false, false, false));
+        p.planeB.set(2, 0, Plane.entry(5, 0, false, false, false));
+        check(p.moveTile(2, 4), "déplacement 2 -> 4");
+        check(p.tiles.pixel(4, 0, 0) == 2 && p.tiles.pixel(2, 0, 0) == 3 && p.tiles.pixel(3, 0, 0) == 4,
+            "les tiles entre les deux glissent d'une place");
+        check(p.planeA.get(0, 0) == Plane.entry(4, 1, true, false, true), "entrée du tile déplacé recalculée, attributs gardés");
+        check(Plane.tile(p.planeB.get(1, 0)) == 3 && Plane.tile(p.planeB.get(2, 0)) == 5, "les autres suivent");
+        check(p.moveTile(4, 2) && p.tiles.pixel(2, 0, 0) == 2 && Plane.tile(p.planeA.get(0, 0)) == 2,
+            "retour 4 -> 2");
+        check(!p.moveTile(3, 0) && !p.moveTile(0, 3), "le tile 0 ne bouge pas");
+    }
+
+    static void mapSize() {
+        check(Project.empty(64, 64).heights.sameAs(HeightMap.standard()), "64 x 64 : la 3D d'avant");
+        Project p = Project.empty(256, 200);
+        check(p.mapWidth() == 256 && p.mapHeight() == 200, "carte de 256 x 200");
+        p.planeB.set(10, 10, 0x1234);
+        p.resize(300, 20);
+        check(p.mapWidth() == 300 && p.planeB.get(10, 10) == 0x1234, "agrandir garde le contenu");
+        check(Export.plane(p.planeB).length == 300 * 20 * 2, "export à la nouvelle taille");
     }
 }

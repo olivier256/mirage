@@ -72,6 +72,15 @@ public final class Plane {
         return o.width == width && o.height == height && Arrays.equals(cells, o.cells);
     }
 
+    /** Une copie de w x h cases ; ce qui dépasse est perdu, le reste est vide. */
+    public Plane resized(int w, int h) {
+        Plane p = new Plane(w, h);
+        for (int y = 0; y < Math.min(h, height); y++)
+            for (int x = 0; x < Math.min(w, width); x++)
+                p.set(x, y, get(x, y));
+        return p;
+    }
+
     /* Modifier un seul champ d'une entrée pccvhnnn nnnnnnnn */
 
     public static int withPriority(int e, boolean on) {

@@ -84,8 +84,13 @@ public final class MainFrame extends JFrame {
         int cmd = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
         JMenuBar bar = new JMenuBar();
         JMenu file = new JMenu("Fichier");
-        file.add(item("Nouveau (vide)", KeyStroke.getKeyStroke(KeyEvent.VK_N, cmd),
-            () -> { if (confirmLoss()) load(Project.empty(), null); }));
+        file.add(item("Nouveau (vide)…", KeyStroke.getKeyStroke(KeyEvent.VK_N, cmd), () -> {
+            if (!confirmLoss())
+                return;
+            int[] wh = askSize("Nouvelle carte", 64, 64);
+            if (wh != null)
+                load(Project.empty(wh[0], wh[1]), null);
+        }));
         file.add(item("Nouveau (démo)", null,
             () -> { if (confirmLoss()) load(DemoBuilder.build(), null); }));
         file.add(item("Ouvrir…", KeyStroke.getKeyStroke(KeyEvent.VK_O, cmd), this::open));
@@ -105,11 +110,21 @@ public final class MainFrame extends JFrame {
         edit.add(item("Rétablir", KeyStroke.getKeyStroke(KeyEvent.VK_Z,
             cmd | java.awt.event.InputEvent.SHIFT_DOWN_MASK), ed::redo));
         edit.addSeparator();
-        edit.add(item("Copier les tiles", KeyStroke.getKeyStroke(KeyEvent.VK_C, cmd), ed::copyTiles));
-        edit.add(item("Coller les tiles", KeyStroke.getKeyStroke(KeyEvent.VK_V, cmd), () -> {
-            if (!ed.pasteTiles())
+        JMenuItem copy = item("Copier", KeyStroke.getKeyStroke(KeyEvent.VK_C, cmd), ed::copy);
+        JMenuItem paste = item("Coller", KeyStroke.getKeyStroke(KeyEvent.VK_V, cmd), () -> {
+            if (!ed.paste())
                 Toolkit.getDefaultToolkit().beep();
-        }));
+        });
+        edit.add(copy);
+        edit.add(paste);
+        /* le menu dit ce que ⌘C / ⌘V vont copier : le panneau actif */
+        ed.listen(() -> {
+            boolean map = ed.focus == Editor.Focus.MAP;
+            copy.setText(map ? "Copier les cases de la tilemap" : "Copier les tiles de la bibliothèque");
+            paste.setText(map ? "Coller les cases dans la tilemap" : "Coller les tiles dans la bibliothèque");
+        });
+        edit.addSeparator();
+        edit.add(item("Taille de la carte…", null, this::resizeMap));
         bar.add(edit);
         JMenu view = new JMenu("Affichage");
         view.add(item("Carte", KeyStroke.getKeyStroke(KeyEvent.VK_M, cmd), this::openMap));
@@ -186,6 +201,36 @@ public final class MainFrame extends JFrame {
         } catch (IOException e) {
             error("Impossible d'enregistrer :\n" + e.getMessage());
         }
+    }
+
+    /** Demande une taille de carte en tiles (64 x 64 par défaut, pas de maximum). */
+    private int[] askSize(String title, int w, int h) {
+        javax.swing.JTextField fw = new javax.swing.JTextField(Integer.toString(w), 5);
+        javax.swing.JTextField fh = new javax.swing.JTextField(Integer.toString(h), 5);
+        JPanel p = new JPanel();
+        p.add(new javax.swing.JLabel("Largeur"));
+        p.add(fw);
+        p.add(new javax.swing.JLabel("Hauteur"));
+        p.add(fh);
+        p.add(new javax.swing.JLabel("(en tiles)"));
+        while (JOptionPane.showConfirmDialog(this, p, title, JOptionPane.OK_CANCEL_OPTION)
+            == JOptionPane.OK_OPTION) {
+            try {
+                int nw = Integer.parseInt(fw.getText().trim()), nh = Integer.parseInt(fh.getText().trim());
+                if (nw > 0 && nh > 0)
+                    return new int[] {nw, nh};
+            } catch (NumberFormatException e) {
+                /* on redemande */
+            }
+            error("Largeur et hauteur : des nombres entiers positifs.");
+        }
+        return null;
+    }
+
+    private void resizeMap() {
+        int[] wh = askSize("Taille de la carte", ed.project.mapWidth(), ed.project.mapHeight());
+        if (wh != null && (wh[0] != ed.project.mapWidth() || wh[1] != ed.project.mapHeight()))
+            ed.resize(wh[0], wh[1]);
     }
 
     private void about() {
