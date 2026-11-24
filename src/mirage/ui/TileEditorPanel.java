@@ -49,6 +49,11 @@ public final class TileEditorPanel extends JPanel {
         tools.add(action("↕ Miroir", () -> transform(px -> TileSet.flip(px, 2))));
         tools.add(action("⟳ Quart", () -> transform(TileSet::rotate)));
         tools.add(action("Effacer", () -> transform(px -> new byte[64])));
+        /* défilement d'un pixel, avec enroulement */
+        tools.add(action("← Défiler", () -> transform(px -> TileSet.shift(px, -1, 0))));
+        tools.add(action("→ Défiler", () -> transform(px -> TileSet.shift(px, 1, 0))));
+        tools.add(action("↑ Défiler", () -> transform(px -> TileSet.shift(px, 0, -1))));
+        tools.add(action("↓ Défiler", () -> transform(px -> TileSet.shift(px, 0, 1))));
         JPanel east = new JPanel(new BorderLayout());
         east.add(tools, BorderLayout.NORTH);
         east.add(info, BorderLayout.SOUTH);
@@ -79,9 +84,8 @@ public final class TileEditorPanel extends JPanel {
 
     private void refresh() {
         int t = ed.tile();
-        info.setText("<html>Tile " + t + String.format(" ($%03X)", t)
-            + "<br>palette " + ed.line
-            + (t == 0 ? "<br><i>tile 0 : toujours vide</i>" : "") + "</html>");
+        /* seule indication gardée : pourquoi le tile 0 ne se dessine pas */
+        info.setText(t == 0 ? "<html><i>tile 0 : toujours vide</i></html>" : " ");
         repaint();
     }
 

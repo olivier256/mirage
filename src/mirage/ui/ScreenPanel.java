@@ -134,8 +134,8 @@ public final class ScreenPanel extends JPanel {
             hex.setText(String.format("%03X", Plane.tile(en)));
             int n = ed.cells.cardinality();
             count.setText(n == 0 ? "   (aucune case)" : n == 1 ? "   (1 case)" : "   (" + n + " cases)");
-            if (tabs.getSelectedIndex() != (ed.onA ? 0 : 1))
-                tabs.setSelectedIndex(ed.onA ? 0 : 1);
+            if (tabs.getSelectedIndex() != (ed.onA ? 1 : 0))
+                tabs.setSelectedIndex(ed.onA ? 1 : 0);
             syncing = false;
         });
 
@@ -145,13 +145,13 @@ public final class ScreenPanel extends JPanel {
         north.add(entry);
         add(north, BorderLayout.NORTH);
 
-        /* Les onglets : la vue passe dans l'onglet choisi */
-        tabs.addTab("Plan A", tabA);
+        /* Les onglets, dans l'ordre du VDP (B sous A) ; la vue passe dans l'onglet choisi */
         tabs.addTab("Plan B", tabB);
-        tabs.setSelectedIndex(ed.onA ? 0 : 1);
+        tabs.addTab("Plan A", tabA);
+        tabs.setSelectedIndex(ed.onA ? 1 : 0);
         (ed.onA ? tabA : tabB).add(scroll);
         tabs.addChangeListener(e -> {
-            boolean a = tabs.getSelectedIndex() == 0;
+            boolean a = tabs.getSelectedIndex() == 1;
             (a ? tabA : tabB).add(scroll);
             if (syncing || a == ed.onA)
                 return;

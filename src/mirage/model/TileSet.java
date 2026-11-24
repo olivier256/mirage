@@ -109,6 +109,18 @@ public final class TileSet {
         return out;
     }
 
+    /**
+     * Décale le dessin de (dx, dy) pixels avec enroulement : ce qui sort
+     * d'un côté rentre de l'autre.
+     */
+    public static byte[] shift(byte[] px, int dx, int dy) {
+        byte[] out = new byte[64];
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+                out[Math.floorMod(y + dy, 8) * 8 + Math.floorMod(x + dx, 8)] = px[y * 8 + x];
+        return out;
+    }
+
     /** Cherche un tile identique (retournements compris) : {numéro, flips} ou null. */
     public int[] find(byte[] px) {
         for (int f = 0; f < 4; f++) {

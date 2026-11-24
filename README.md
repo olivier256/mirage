@@ -17,15 +17,16 @@ aucune bibliothèque.
   par composante comme la CRAM, réglés par trois curseurs R, G, B ; la couleur 0 de chaque ligne est
   transparente (barrée), la 0 de la ligne 0 est le fond.
 - **Tile** (au milieu à gauche) : le tile sélectionné, 8 × 8 ; crayon,
-  ligne, rectangle, remplissage, pipette, miroirs, quart de tour. Bouton droit (ou Ctrl) : couleur 0. Le tile 0 reste vide.
+  ligne, rectangle, remplissage, pipette, miroirs, quart de tour,
+  défilement d'un pixel dans les quatre directions avec enroulement. Bouton droit (ou Ctrl) : couleur 0. Le tile 0 reste vide.
 - **Tiles** (en haut à droite) : les 2 048 numéros de la Mega Drive, 32
   par rangée. Tous sont utilisables : un tile jamais dessiné est vide (cadre
   discret), il existe dès qu'on dessine dedans. Clic ou glissé : le tile
   (ou le bloc) à éditer et à poser. Copier / Coller (⌘C / ⌘V) : le
   tile ou le bloc passe par le presse-papiers en texte asm68k (dc.l),
   qu'on colle sur le tile choisi.
-- **Tilemap** (en bas à droite) : un onglet par plan, « Plan A » et
-  « Plan B », chacun vu et modifié seul.
+- **Tilemap** (en bas à droite) : un onglet par plan, « Plan B » puis
+  « Plan A » (l'ordre du VDP), chacun vu et modifié seul.
   - Outils : **Sélection** (rectangle à la souris ; ⌘-clic ajoute ou
     retire une case, ⌘-glissé ajoute un rectangle), **Poser** (le bloc de
     la planche, avec les champs de l'entrée en cours), **Gommer**.

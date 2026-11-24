@@ -44,6 +44,7 @@ public final class Tests {
         asm();
         selection();
         clip();
+        shift();
         version();
         System.out.println(run + " vérifications, " + failed + " échec(s)");
         System.exit(failed == 0 ? 0 : 1);
@@ -267,5 +268,19 @@ public final class Tests {
         p.tiles.setPixel(9, 2, 2, 7);
         check(mirage.model.TileClip.copy(p.tiles, 9, 1, 1).contains(Export.tilesAsm(p).split("; tile 9 \\(\\$009\\)\n")[1].substring(0, 80)),
             "même texte que l'export .s");
+    }
+
+    static void shift() {
+        byte[] px = new byte[64];
+        px[0] = 1;          /* (0,0) */
+        px[7 * 8 + 7] = 2;  /* (7,7) */
+        byte[] r = TileSet.shift(px, 1, 0);
+        check(r[1] == 1 && r[7 * 8] == 2, "→ : la colonne de droite revient à gauche");
+        byte[] u = TileSet.shift(px, 0, -1);
+        check(u[7 * 8] == 1 && u[6 * 8 + 7] == 2, "↑ : la ligne du haut passe en bas");
+        byte[] back = px;
+        for (int i = 0; i < 8; i++)
+            back = TileSet.shift(back, -1, 0);
+        check(java.util.Arrays.equals(back, px), "8 décalages = identité");
     }
 }

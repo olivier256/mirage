@@ -126,3 +126,20 @@ Mesures :
 - Essai à la souris : clic sur le dessus bleu de l'estrade → planche sur
   le tile 5, éditeur sur le tile 5 en palette 1 ; ⌘C, clic sur le
   tile 190 vide, ⌘V → le tile 190 est la copie du 5.
+
+## 0.6 — plan B d'abord, défilement des tiles
+
+Ce que fait la version :
+
+- Tilemap : l'onglet « Plan B » vient en premier (et s'ouvre au
+  démarrage), puis « Plan A » : l'ordre du VDP, où B est sous A.
+- Éditeur de tile : les indications « Tile N » et « palette N » sont
+  retirées (seule reste la mention du tile 0, toujours vide).
+- Éditeur de tile : quatre boutons ← → ↑ ↓ « Défiler » décalent le
+  dessin du tile affiché d'un pixel, avec enroulement (ce qui sort d'un
+  côté rentre de l'autre). Un clic = un pas d'annulation.
+
+Mesures :
+
+- `make test` : 70 vérifications, 0 échec (3 nouvelles : enroulement
+  horizontal, vertical, 8 décalages = identité).
