@@ -19,10 +19,12 @@ import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import mirage.model.HeightMap;
@@ -47,14 +49,19 @@ public final class ScreenPanel extends JPanel {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("Écran"));
 
-        JPanel tools = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        /* Rangée 1 : l'outil (exclusif), puis le zoom et la carte */
+        JPanel tools = row();
         ButtonGroup group = new ButtonGroup();
         Object[][] list = {{"Poser", Editor.MapTool.PLACE}, {"Gommer", Editor.MapTool.ERASE},
+            {"Pipette", Editor.MapTool.PICK}, null,
             {"P on", Editor.MapTool.PRIO_ON}, {"P off", Editor.MapTool.PRIO_OFF},
-            {"Hauteur", Editor.MapTool.HEIGHT}, {"Pipette", Editor.MapTool.PICK}};
+            {"Hauteur", Editor.MapTool.HEIGHT}};
         for (Object[] o : list) {
-            JToggleButton b = new JToggleButton((String) o[0], o[1] == ed.mapTool);
-            b.setFocusable(false);
+            if (o == null) {
+                tools.add(gap());
+                continue;
+            }
+            JToggleButton b = compact(new JToggleButton((String) o[0], o[1] == ed.mapTool));
             b.addActionListener(e -> {
                 ed.mapTool = (Editor.MapTool) o[1];
                 ed.changed();
@@ -62,61 +69,84 @@ public final class ScreenPanel extends JPanel {
             group.add(b);
             tools.add(b);
         }
-        tools.add(new JLabel("   Plan"));
-        ButtonGroup planes = new ButtonGroup();
-        JRadioButton a = new JRadioButton("A", ed.onA), b = new JRadioButton("B", !ed.onA);
-        a.addActionListener(e -> ed.onA = true);
-        b.addActionListener(e -> ed.onA = false);
-        planes.add(a);
-        planes.add(b);
-        tools.add(a);
-        tools.add(b);
-        tools.add(new JLabel("   Palette"));
-        ButtonGroup lines = new ButtonGroup();
-        JToggleButton[] lineButtons = new JToggleButton[4];
-        for (int l = 0; l < 4; l++) {
-            final int ll = l;
-            JToggleButton lb = new JToggleButton(Integer.toString(l), l == ed.line);
-            lb.setFocusable(false);
-            lb.setMargin(new java.awt.Insets(2, 6, 2, 6));
-            lb.addActionListener(e -> {
-                ed.line = ll;
-                ed.changed();
-            });
-            lines.add(lb);
-            tools.add(lb);
-            lineButtons[l] = lb;
+        tools.add(gap());
+        ButtonGroup zooms = new ButtonGroup();
+        for (int z = 1; z <= 3; z++) {
+            final int zz = z;
+            JToggleButton zb = compact(new JToggleButton("x" + z, z == ed.zoom));
+            zb.addActionListener(e -> setZoom(zz));
+            zooms.add(zb);
+            tools.add(zb);
         }
-        /* suit la palette choisie ailleurs (pastilles, pipette) */
-        ed.listen(() -> lineButtons[ed.line].setSelected(true));
-        tools.add(check("↔", ed.hflip, v -> ed.hflip = v));
-        tools.add(check("↕", ed.vflip, v -> ed.vflip = v));
-        tools.add(check("Priorité", ed.priority, v -> ed.priority = v));
+        JButton map = compact(new JButton("Carte"));
+        map.addActionListener(e -> openMap.run());
+        tools.add(map);
 
-        JPanel shows = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        /* Rangée 2 : l'entrée de plan posée (plan visé, tile, palette, bits) */
+        JPanel entry = row();
+        entry.add(new JLabel("Plan"));
+        ButtonGroup planes = new ButtonGroup();
+        JRadioButton pa = new JRadioButton("A", ed.onA), pb = new JRadioButton("B", !ed.onA);
+        pa.setFocusable(false);
+        pb.setFocusable(false);
+        pa.addActionListener(e -> ed.onA = true);
+        pb.addActionListener(e -> ed.onA = false);
+        planes.add(pa);
+        planes.add(pb);
+        entry.add(pa);
+        entry.add(pb);
+        entry.add(gap());
+        entry.add(new JLabel("Tile"));
+        JTextField tileField = new JTextField(8);
+        tileField.setEditable(false);
+        tileField.setFocusable(false);
+        entry.add(tileField);
+        entry.add(new JLabel(" Palette"));
+        JComboBox<String> palette = new JComboBox<>(new String[] {"0", "1", "2", "3"});
+        palette.setFocusable(false);
+        palette.setSelectedIndex(ed.line);
+        palette.addActionListener(e -> {
+            if (syncing || palette.getSelectedIndex() == ed.line)
+                return;
+            ed.line = palette.getSelectedIndex();
+            ed.changed();
+        });
+        entry.add(palette);
+        JCheckBox prio = check("Priorité", ed.priority, v -> ed.priority = v);
+        JCheckBox hf = check("H-flip", ed.hflip, v -> ed.hflip = v);
+        JCheckBox vf = check("V-flip", ed.vflip, v -> ed.vflip = v);
+        entry.add(prio);
+        entry.add(hf);
+        entry.add(vf);
+        /* Les contrôles suivent l'état (pastilles, planche, pipette) */
+        ed.listen(() -> {
+            syncing = true;
+            palette.setSelectedIndex(ed.line);
+            prio.setSelected(ed.priority);
+            hf.setSelected(ed.hflip);
+            vf.setSelected(ed.vflip);
+            pa.setSelected(ed.onA);
+            pb.setSelected(!ed.onA);
+            String t = ed.selStart + String.format(" ($%03X)", ed.selStart);
+            if (ed.selW * ed.selH > 1)
+                t += " " + ed.selW + "x" + ed.selH;
+            tileField.setText(t);
+            syncing = false;
+        });
+
+        /* Rangée 3 : ce qu'on voit */
+        JPanel shows = row();
         shows.add(new JLabel("Voir :"));
         shows.add(check("plan A", ed.showA, v -> ed.showA = v));
         shows.add(check("plan B", ed.showB, v -> ed.showB = v));
         shows.add(check("fil de fer", ed.showWire, v -> ed.showWire = v));
         shows.add(check("grille", ed.showGrid, v -> ed.showGrid = v));
         shows.add(check("priorités", ed.showPriority, v -> ed.showPriority = v));
-        ButtonGroup zooms = new ButtonGroup();
-        for (int z = 1; z <= 3; z++) {
-            final int zz = z;
-            JToggleButton zb = new JToggleButton("x" + z, z == ed.zoom);
-            zb.setFocusable(false);
-            zb.addActionListener(e -> setZoom(zz));
-            zooms.add(zb);
-            shows.add(zb);
-        }
-        JButton map = new JButton("Carte");
-        map.setFocusable(false);
-        map.addActionListener(e -> openMap.run());
-        shows.add(map);
 
         JPanel north = new JPanel();
         north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
         north.add(tools);
+        north.add(entry);
         north.add(shows);
         add(north, BorderLayout.NORTH);
         scroll.setPreferredSize(new Dimension(640 + 4, 448 + 4));
@@ -131,6 +161,27 @@ public final class ScreenPanel extends JPanel {
         });
     }
 
+    private boolean syncing;
+
+    private static JPanel row() {
+        JPanel r = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 1));
+        r.setAlignmentX(LEFT_ALIGNMENT);
+        return r;
+    }
+
+    private static <T extends javax.swing.AbstractButton> T compact(T b) {
+        b.setFocusable(false);
+        b.setMargin(new java.awt.Insets(2, 6, 2, 6));
+        return b;
+    }
+
+    /** Un séparateur vertical entre deux groupes. */
+    private static javax.swing.JComponent gap() {
+        javax.swing.JSeparator s = new javax.swing.JSeparator(javax.swing.SwingConstants.VERTICAL);
+        s.setPreferredSize(new Dimension(9, 20));
+        return s;
+    }
+
     private interface Setter {
         void set(boolean v);
     }
@@ -139,6 +190,8 @@ public final class ScreenPanel extends JPanel {
         JCheckBox c = new JCheckBox(name, value);
         c.setFocusable(false);
         c.addActionListener(e -> {
+            if (syncing)
+                return;
             s.set(c.isSelected());
             ed.changed();
         });
@@ -232,6 +285,9 @@ public final class ScreenPanel extends JPanel {
                         ed.selStart = Plane.tile(en);
                         ed.selW = ed.selH = 1;
                         ed.line = Plane.line(en);
+                        ed.priority = Plane.priority(en);
+                        ed.hflip = (Plane.flips(en) & 1) != 0;
+                        ed.vflip = (Plane.flips(en) & 2) != 0;
                         ed.changed();
                         return;
                     }

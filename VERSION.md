@@ -44,3 +44,24 @@ Mesures :
 - `make test` : 37 vérifications, 0 échec.
 - Glissé de R de 1 à 7 en trois mouvements : 1 pas d'annulation, la
   couleur revient à 1 après Annuler.
+
+## 0.3 — barre de l'écran regroupée
+
+Ce que fait la version :
+
+- La barre de l'écran passe de deux rangées trop larges à trois rangées
+  compactes, groupées par rôle :
+  1. l'outil : Poser, Gommer, Pipette | P on, P off, Hauteur, puis le
+     zoom et le bouton Carte ;
+  2. l'entrée de plan posée : Plan A/B, numéro du tile en lecture seule
+     (décimal et hexadécimal, taille du bloc s'il y en a un), Palette en
+     liste déroulante, cases Priorité, H-flip, V-flip ;
+  3. l'affichage : plans, fil de fer, grille, priorités.
+- Tous ces contrôles suivent l'état : la pipette de l'écran reprend
+  désormais aussi la priorité et les miroirs de la case cliquée.
+
+Mesures :
+
+- Largeur de la barre : environ 510 pixels au lieu de 890 (elle
+  débordait de l'écran à 1440 × 900).
+- `make test` : 37 vérifications, 0 échec.

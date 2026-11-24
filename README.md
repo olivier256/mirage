@@ -21,13 +21,15 @@ aucune bibliothèque.
   coller. Bouton droit (ou Ctrl) : couleur 0. Le tile 0 reste vide.
 - **Tiles** (en haut à droite) : la planche, 32 par rangée. Clic ou glissé :
   le bloc à poser sur l'écran.
-- **Écran** (en bas à droite) : les deux plans, au zoom 1 à 3.
-  Poser / Gommer sur le plan A ou B, dans la palette 0 à 3 choisie
-  (sélecteur « Palette », suit les pastilles), avec miroirs et priorité ;
-  P on / P off posent ou retirent le bit de priorité case par case ;
-  Hauteur : clic gauche +1, clic droit −1 sur le losange visé ;
-  Pipette : reprend l'entrée sous la souris.
-  Le fil de fer montre la carte des hauteurs (0–15 par losange).
+- **Écran** (en bas à droite), trois rangées :
+  - l'outil : Poser, Gommer, Pipette | P on, P off (bit de priorité case
+    par case), Hauteur (clic gauche +1, clic droit −1 sur le losange
+    visé) | zoom x1 à x3 | Carte ;
+  - l'entrée posée : plan A ou B, numéro du tile (lecture seule),
+    palette 0 à 3, Priorité, H-flip, V-flip. La pipette reprend tout
+    cela depuis la case cliquée ;
+  - ce qu'on voit : plans, fil de fer de la carte des hauteurs (0–15 par
+    losange), grille, priorités.
 - **Carte** (bouton ou ⌘M) : toute la carte dans une grande fenêtre ;
   un clic y déplace l'écran ; touches 1, 2, 3 pour le zoom.
 
