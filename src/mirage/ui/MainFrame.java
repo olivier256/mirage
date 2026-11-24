@@ -74,7 +74,10 @@ public final class MainFrame extends JFrame {
 
     /** À appeler une fois la fenêtre affichée. */
     public void showZone() {
-        javax.swing.SwingUtilities.invokeLater(screen::centerOnZone);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            screen.centerOnZone();
+            screen.focusView();
+        });
     }
 
     private JMenuBar menus() {
@@ -101,6 +104,12 @@ public final class MainFrame extends JFrame {
         edit.add(item("Annuler", KeyStroke.getKeyStroke(KeyEvent.VK_Z, cmd), ed::undo));
         edit.add(item("Rétablir", KeyStroke.getKeyStroke(KeyEvent.VK_Z,
             cmd | java.awt.event.InputEvent.SHIFT_DOWN_MASK), ed::redo));
+        edit.addSeparator();
+        edit.add(item("Copier les tiles", KeyStroke.getKeyStroke(KeyEvent.VK_C, cmd), ed::copyTiles));
+        edit.add(item("Coller les tiles", KeyStroke.getKeyStroke(KeyEvent.VK_V, cmd), () -> {
+            if (!ed.pasteTiles())
+                Toolkit.getDefaultToolkit().beep();
+        }));
         bar.add(edit);
         JMenu view = new JMenu("Affichage");
         view.add(item("Carte", KeyStroke.getKeyStroke(KeyEvent.VK_M, cmd), this::openMap));

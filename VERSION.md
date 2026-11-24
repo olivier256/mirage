@@ -96,3 +96,33 @@ Mesures :
 - Essai à la souris : rectangle de 18 cases + ⌘-clic = 19 cases, tile
   $02A tapé une fois appliqué aux 19 ; palette 2 posée, autre case, retour :
   la palette 2 est restée.
+
+## 0.5 — sélection reliée à la planche, copier-coller des tiles
+
+Ce que fait la version :
+
+- Tilemap : un clic avec l'outil Sélection choisit le tile de la case
+  dans la planche (qui défile jusqu'à lui) et l'ouvre dans l'éditeur de
+  tile, dans la palette de la case.
+- Palettes : les numéros 1 à 3 sont en noir comme le 0 (ils prenaient
+  la couleur F de la ligne précédente) ; la palette choisie est entourée
+  d'un cadre rouge épais, en plus du cadre de la couleur.
+- Planche : « Dupliquer » est remplacé par Copier / Coller (boutons,
+  ⌘C / ⌘V, menu Édition). Le texte passe par le presse-papiers du
+  système, au format de l'export .s (« ; Mirage : bloc L x H », puis
+  8 lignes dc.l par tile) : on copie un tile ou un bloc, on choisit la
+  destination, on colle. On peut aussi coller des dc.l venus de
+  n'importe quel source. Le tile 0 reste vide.
+- Éditeur de tile : ses boutons Copier / Coller, qui faisaient doublon,
+  sont retirés.
+- Après une saisie du numéro de tile (Entrée), le clavier revient à la
+  tilemap, pour que ⌘C / ⌘V portent sur les tiles.
+
+Mesures :
+
+- `make test` : 67 vérifications, 0 échec (7 nouvelles pour le
+  copier-coller : texte .s, forme du bloc, dc.l d'un autre source, tile 0,
+  texte illisible refusé).
+- Essai à la souris : clic sur le dessus bleu de l'estrade → planche sur
+  le tile 5, éditeur sur le tile 5 en palette 1 ; ⌘C, clic sur le
+  tile 190 vide, ⌘V → le tile 190 est la copie du 5.

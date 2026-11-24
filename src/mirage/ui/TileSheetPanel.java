@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.awt.Toolkit;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -32,14 +33,10 @@ public final class TileSheetPanel extends JPanel {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("Tiles"));
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        bar.add(button("Dupliquer", () -> {
-            int t = ed.project.tiles.firstEmptyAfter(ed.tile());
-            if (t < 0)
-                return;
-            ed.beginEdit();
-            ed.project.tiles.setPixels(t, ed.project.tiles.pixels(ed.tile()));
-            select(t);
-            ed.changed();
+        bar.add(button("Copier", ed::copyTiles));
+        bar.add(button("Coller", () -> {
+            if (!ed.pasteTiles())
+                Toolkit.getDefaultToolkit().beep();
         }));
         bar.add(info);
         add(bar, BorderLayout.NORTH);
@@ -50,7 +47,10 @@ public final class TileSheetPanel extends JPanel {
             sheet.revalidate();
             sheet.repaint();
             String block = ed.selW * ed.selH > 1 ? " ; bloc de " + ed.selW + " x " + ed.selH : "";
-            info.setText(String.format("tile %d ($%03X)%s", ed.selStart, ed.selStart, block));
+            info.setText(String.format("tile %d ($%03X)%s   (⌘C / ⌘V : copier / coller, en texte .s)",
+                ed.selStart, ed.selStart, block));
+            sheet.scrollRectToVisible(new Rectangle(ed.selStart % Editor.SHEET_COLS * CELL,
+                ed.selStart / Editor.SHEET_COLS * CELL, ed.selW * CELL, ed.selH * CELL));
         });
     }
 
@@ -70,9 +70,11 @@ public final class TileSheetPanel extends JPanel {
         private int ax = -1, ay;
 
         Sheet() {
+            setFocusable(true);
             MouseAdapter m = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
+                    requestFocusInWindow();
                     ax = Math.min(Editor.SHEET_COLS - 1, e.getX() / CELL);
                     ay = e.getY() / CELL;
                     update(ax, ay);

@@ -26,7 +26,6 @@ public final class TileEditorPanel extends JPanel {
     private static final int Z = 40;
     private final Editor ed;
     private final JLabel info = new JLabel();
-    private byte[] clipboard;
 
     public TileEditorPanel(Editor ed) {
         this.ed = ed;
@@ -50,11 +49,6 @@ public final class TileEditorPanel extends JPanel {
         tools.add(action("↕ Miroir", () -> transform(px -> TileSet.flip(px, 2))));
         tools.add(action("⟳ Quart", () -> transform(TileSet::rotate)));
         tools.add(action("Effacer", () -> transform(px -> new byte[64])));
-        tools.add(action("Copier", () -> clipboard = ed.project.tiles.pixels(ed.tile())));
-        tools.add(action("Coller", () -> {
-            if (clipboard != null)
-                transform(px -> clipboard.clone());
-        }));
         JPanel east = new JPanel(new BorderLayout());
         east.add(tools, BorderLayout.NORTH);
         east.add(info, BorderLayout.SOUTH);

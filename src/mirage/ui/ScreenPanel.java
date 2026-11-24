@@ -191,7 +191,10 @@ public final class ScreenPanel extends JPanel {
             }
             ed.changed();
         };
-        t.addActionListener(e -> apply.run());
+        t.addActionListener(e -> {
+            apply.run();
+            view.requestFocusInWindow(); /* ⌘C / ⌘V reviennent aux tiles */
+        });
         t.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
@@ -200,12 +203,22 @@ public final class ScreenPanel extends JPanel {
         });
     }
 
-    /** La sélection a changé : l'entrée en cours devient celle de la case de référence. */
+    /**
+     * La sélection a changé : l'entrée en cours devient celle de la case de
+     * référence. Avec l'outil Sélection, son tile est aussi choisi dans la
+     * planche et ouvert dans l'éditeur de tile, dans sa palette.
+     */
     private void selectionChanged() {
         Plane p = ed.project.plane(ed.onA);
         int i = view.anchor;
-        if (i >= 0 && ed.cells.get(i))
+        if (i >= 0 && ed.cells.get(i)) {
             ed.entry = p.get(i % p.width, i / p.width);
+            if (ed.mapTool == Editor.MapTool.SELECT) {
+                ed.selStart = Plane.tile(ed.entry);
+                ed.selW = ed.selH = 1;
+                ed.line = Plane.line(ed.entry);
+            }
+        }
         ed.changed();
     }
 
@@ -278,6 +291,11 @@ public final class ScreenPanel extends JPanel {
         return new Rectangle(r.x / ed.zoom, r.y / ed.zoom, r.width / ed.zoom, r.height / ed.zoom);
     }
 
+    /** Donne le clavier à la vue (et non aux champs du numéro de tile). */
+    public void focusView() {
+        view.requestFocusInWindow();
+    }
+
     public void onScroll(Runnable r) {
         scroll.getViewport().addChangeListener(e -> r.run());
     }
@@ -317,9 +335,11 @@ public final class ScreenPanel extends JPanel {
         private boolean toggle, dragging;
 
         MapView() {
+            setFocusable(true);
             MouseAdapter m = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
+                    requestFocusInWindow();
                     Plane p = ed.project.plane(ed.onA);
                     int tx = e.getX() / ed.zoom / 8, ty = e.getY() / ed.zoom / 8;
                     if (!p.inside(tx, ty))

@@ -43,6 +43,7 @@ public final class Tests {
         fields();
         asm();
         selection();
+        clip();
         version();
         System.out.println(run + " vérifications, " + failed + " échec(s)");
         System.exit(failed == 0 ? 0 : 1);
@@ -242,5 +243,29 @@ public final class Tests {
             "Version.NUMBER = dernière section de VERSION.md (" + last + ")");
         check(Version.PATCH.equals(String.format("%04d", Integer.parseInt(Version.NUMBER.split("\\.")[1]))),
             "numéro de patch");
+    }
+
+    static void clip() {
+        TileSet t = new TileSet();
+        t.setPixel(5, 0, 0, 0xA);
+        t.setPixel(6, 7, 7, 3);
+        t.setPixel(5 + 32, 1, 0, 0xF);
+        String text = mirage.model.TileClip.copy(t, 5, 2, 2);
+        check(text.startsWith("; Mirage : bloc 2 x 2\n; tile 5 ($005)\n\tdc.l\t$A0000000\n"), "copie en .s");
+        int[] wh = mirage.model.TileClip.paste(t, text, 100);
+        check(wh != null && wh[0] == 2 && wh[1] == 2, "forme du bloc gardée");
+        check(t.pixel(100, 0, 0) == 0xA && t.pixel(101, 7, 7) == 3 && t.pixel(132, 1, 0) == 0xF,
+            "bloc collé au même dessin");
+        check(mirage.model.TileClip.paste(t, "bonjour", 100) == null, "texte illisible refusé");
+        /* un tile venu d'un source quelconque, avec commentaires et virgules */
+        String src = "Gfx:  dc.l $11111111,$22222222 ; deux lignes\n"
+            + " DC.L $33333333,$44444444,$55555555,$66666666,$77777777,$88888888\n";
+        check(mirage.model.TileClip.paste(t, src, 0) != null && t.isEmpty(0), "le tile 0 reste vide");
+        mirage.model.TileClip.paste(t, src, 200);
+        check(t.pixel(200, 3, 0) == 1 && t.pixel(200, 0, 7) == 8, "dc.l de n'importe quel source");
+        Project p = Project.empty();
+        p.tiles.setPixel(9, 2, 2, 7);
+        check(mirage.model.TileClip.copy(p.tiles, 9, 1, 1).contains(Export.tilesAsm(p).split("; tile 9 \\(\\$009\\)\n")[1].substring(0, 80)),
+            "même texte que l'export .s");
     }
 }

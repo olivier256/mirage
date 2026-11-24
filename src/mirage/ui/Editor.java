@@ -88,6 +88,34 @@ public final class Editor {
         changed();
     }
 
+    /** Copie le tile (ou le bloc) sélectionné dans la planche, en texte .s. */
+    public void copyTiles() {
+        String text = mirage.model.TileClip.copy(project.tiles, selStart, selW, selH);
+        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+            .setContents(new java.awt.datatransfer.StringSelection(text), null);
+    }
+
+    /** Colle le texte du presse-papiers à partir du tile sélectionné ; faux si illisible. */
+    public boolean pasteTiles() {
+        String text;
+        try {
+            text = (String) java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                .getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+        } catch (Exception e) {
+            return false;
+        }
+        TileSet copy = project.tiles.copy();
+        int[] wh = mirage.model.TileClip.paste(copy, text, selStart);
+        if (wh == null)
+            return false;
+        beginEdit();
+        mirage.model.TileClip.paste(project.tiles, text, selStart);
+        selW = wh[0];
+        selH = wh[1];
+        changed();
+        return true;
+    }
+
     public void undo() {
         project = history.undo(project);
         dirty = true;

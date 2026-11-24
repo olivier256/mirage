@@ -17,13 +17,13 @@ aucune bibliothèque.
   par composante comme la CRAM, réglés par trois curseurs R, G, B ; la couleur 0 de chaque ligne est
   transparente (barrée), la 0 de la ligne 0 est le fond.
 - **Tile** (au milieu à gauche) : le tile sélectionné, 8 × 8 ; crayon,
-  ligne, rectangle, remplissage, pipette, miroirs, quart de tour, copier /
-  coller. Bouton droit (ou Ctrl) : couleur 0. Le tile 0 reste vide.
+  ligne, rectangle, remplissage, pipette, miroirs, quart de tour. Bouton droit (ou Ctrl) : couleur 0. Le tile 0 reste vide.
 - **Tiles** (en haut à droite) : les 2 048 numéros de la Mega Drive, 32
   par rangée. Tous sont utilisables : un tile jamais dessiné est vide (cadre
   discret), il existe dès qu'on dessine dedans. Clic ou glissé : le tile
-  (ou le bloc) à éditer et à poser. « Dupliquer » copie le tile dans la
-  première position libre qui suit.
+  (ou le bloc) à éditer et à poser. Copier / Coller (⌘C / ⌘V) : le
+  tile ou le bloc passe par le presse-papiers en texte asm68k (dc.l),
+  qu'on colle sur le tile choisi.
 - **Tilemap** (en bas à droite) : un onglet par plan, « Plan A » et
   « Plan B », chacun vu et modifié seul.
   - Outils : **Sélection** (rectangle à la souris ; ⌘-clic ajoute ou
@@ -31,7 +31,8 @@ aucune bibliothèque.
     la planche, avec les champs de l'entrée en cours), **Gommer**.
   - L'entrée, dans l'ordre des bits `pccvhnnn nnnnnnnn` : Priorité,
     Palette, V-flip, H-flip, numéro de tile en décimal et en hexadécimal
-    (Entrée pour valider). Les champs montrent la case cliquée et
+    (Entrée pour valider). Un clic choisit aussi le tile de la case dans
+    la planche et l'éditeur de tile. Les champs montrent la case cliquée et
     s'appliquent à toutes les cases sélectionnées. C'est le seul endroit
     où l'on modifie la tilemap : la palette choisie en haut à gauche ne
     sert qu'à dessiner et voir les tiles.

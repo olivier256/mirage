@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
@@ -93,7 +94,7 @@ public final class PalettePanel extends JPanel {
 
     private final class Swatches extends JPanel {
         Swatches() {
-            setPreferredSize(new Dimension(20 + 16 * CELL + 4, 18 + 4 * CELL + 4));
+            setPreferredSize(new Dimension(20 + 16 * CELL + 6, 18 + 4 * CELL + 6));
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -114,6 +115,7 @@ public final class PalettePanel extends JPanel {
             for (int c = 0; c < 16; c++)
                 g.drawString(Integer.toHexString(c).toUpperCase(), 20 + c * CELL + 9, 13);
             for (int l = 0; l < 4; l++) {
+                g.setColor(getForeground());
                 g.drawString(Integer.toString(l), 4, 18 + l * CELL + 18);
                 for (int c = 0; c < 16; c++) {
                     int x = 20 + c * CELL, y = 18 + l * CELL;
@@ -125,6 +127,12 @@ public final class PalettePanel extends JPanel {
                     }
                 }
             }
+            /* la palette choisie : un cadre rouge épais autour de la ligne */
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setColor(new Color(220, 30, 30));
+            g2.setStroke(new java.awt.BasicStroke(3f));
+            g2.drawRect(1, 18 + ed.line * CELL - 1, 20 + 16 * CELL, CELL + 1);
+            g2.setStroke(new java.awt.BasicStroke(1f));
             int x = 20 + ed.color * CELL, y = 18 + ed.line * CELL;
             g.setColor(Color.WHITE);
             g.drawRect(x, y, CELL - 1, CELL - 1);
